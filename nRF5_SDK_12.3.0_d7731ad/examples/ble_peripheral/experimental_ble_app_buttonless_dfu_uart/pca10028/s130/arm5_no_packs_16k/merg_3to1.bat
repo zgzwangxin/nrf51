@@ -1,0 +1,1 @@
+mergehex --merge s130_nrf51_2.0.1_softdevice.hex bootloader.hex .\_build\nrf51422_xxac.hex --output output3to1.hex

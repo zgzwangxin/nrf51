@@ -1,0 +1,1 @@
+mergehex --merge output3to1.hex bootloader_setting.hex --output output.hex

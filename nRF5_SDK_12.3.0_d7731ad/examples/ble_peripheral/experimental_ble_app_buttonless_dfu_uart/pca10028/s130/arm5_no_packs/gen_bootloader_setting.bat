@@ -1,0 +1,1 @@
+nrfutil settings generate --family NRF51 --application .\_build\nrf51422_xxac.hex --application-version 1 --bootloader-version 1 --bl-settings-version 1 bootloader_setting.hex
