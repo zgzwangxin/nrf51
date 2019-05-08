@@ -1,1 +1,3 @@
-_build/
+pca10028/s130/arm5_no_packs_16k/bootloader_setting.hex
+pca10028/s130/arm5_no_packs_16k/output.hex
+pca10028/s130/arm5_no_packs_16k/output3to1.hex

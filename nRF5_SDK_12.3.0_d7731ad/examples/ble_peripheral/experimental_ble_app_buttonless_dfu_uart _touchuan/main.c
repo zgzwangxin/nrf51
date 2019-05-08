@@ -101,6 +101,8 @@
 #include "global.h"
 
 #include "nrf_uart.h"
+
+#include "lin.h"
  
 
 #define NRF_LOG_MODULE_NAME "APP"
@@ -164,6 +166,9 @@ static uint16_t m_conn_handle = BLE_CONN_HANDLE_INVALID;                        
 #define UART_TX_BUF_SIZE                256                                         /**< UART TX buffer size. */
 #define UART_RX_BUF_SIZE                256                                         /**< UART RX buffer size. */
 
+#define USE_DFU 0
+
+#if USE_DFU
 static ble_dfu_t m_dfus;                                                            /**< Structure used to identify the DFU service. */
 
 static void ble_dfu_evt_handler(ble_dfu_t * p_dfu, ble_dfu_evt_t * p_evt)
@@ -186,6 +191,7 @@ static void ble_dfu_evt_handler(ble_dfu_t * p_dfu, ble_dfu_evt_t * p_evt)
             break;
     }
 }
+#endif
 
 static ble_nus_t                        m_nus;                                      /**< Structure to identify the Nordic UART Service. */
 
@@ -395,11 +401,13 @@ static void soft_timer1_timer_handler(void * p_context)
 
     UNUSED_PARAMETER(p_context);
     
-    nrf_gpio_pin_write(16, LEDS_ACTIVE_STATE ? 1 : 0);
-    
-    battery_voltage_check_state(&g_battery_voltage_manage);
+//    nrf_gpio_pin_write(16, LEDS_ACTIVE_STATE ? 1 : 0);
+//    
+//    battery_voltage_check_state(&g_battery_voltage_manage);
 
-    nrf_gpio_pin_write(16, LEDS_ACTIVE_STATE ? 0 : 1);
+//    nrf_gpio_pin_write(16, LEDS_ACTIVE_STATE ? 0 : 1);
+  
+  Lin_master_go();
 }
 
 
@@ -514,10 +522,23 @@ static void gap_params_init(void)
 /**@snippet [Handling the data received over BLE] */
 static void nus_data_handler(ble_nus_t * p_nus, uint8_t * p_data, uint16_t length)
 {
-    for (uint32_t i = 0; i < length; i++)
-    {
-        while (app_uart_put(p_data[i]) != NRF_SUCCESS);
+  uint8_t len, ID;
+  
+  if (p_data[0] == 0xaa && Lin_CheckPID(p_data[1])) {
+    
+    ID = p_data[1] & 0x3f;
+    len = 0x01 << (((ID >> 4) & 0x03) + 1);
+    
+    if (Lin_Check_Sum(p_data + 2, len) == p_data[len + 2]) {
+      
+      Lin_ID_data_press(ID, p_data + 2);
     }
+  }
+  
+//    for (uint32_t i = 0; i < length; i++)
+//    {
+//        while (app_uart_put(p_data[i]) != NRF_SUCCESS);
+//    }
 //    while (app_uart_put('\r') != NRF_SUCCESS);
 //    while (app_uart_put('\n') != NRF_SUCCESS);
 }
@@ -670,6 +691,8 @@ static void on_dis_evt(ble_dis_t * p_dis, ble_dis_evt_t * p_evt)
 static void services_init(void)
 {
     uint32_t err_code;
+
+  #if USE_DFU
     ble_dfu_init_t dfus_init;
 
     // Initialize the Device Firmware Update Service.
@@ -682,6 +705,7 @@ static void services_init(void)
     err_code = ble_dfu_init(&m_dfus, &dfus_init);
     APP_ERROR_CHECK(err_code);
     /**/
+  #endif
 	
     ble_nus_init_t nus_init;
 
@@ -1089,7 +1113,9 @@ static void ble_evt_dispatch(ble_evt_t * p_ble_evt)
     bsp_btn_ble_on_ble_evt(p_ble_evt);
     on_ble_evt(p_ble_evt);
     ble_advertising_on_ble_evt(p_ble_evt);
+  #if USE_DFU
     ble_dfu_on_ble_evt(&m_dfus, p_ble_evt);
+  #endif
     ble_bas_on_ble_evt(&m_bas,  p_ble_evt);
 	
     ble_nus_on_ble_evt(&m_nus, p_ble_evt);
@@ -1336,32 +1362,35 @@ void uart_init(void);
 /**@snippet [Handling the data received over UART] */
 void uart_event_handle(app_uart_evt_t * p_event)
 {
-    static uint8_t data_array[BLE_NUS_MAX_DATA_LEN];
-    static uint8_t index = 0;
-    uint32_t       err_code;
+//    static uint8_t data_array[BLE_NUS_MAX_DATA_LEN];
+//    static uint8_t index = 0;
+  uint8_t data;
+//    uint32_t       err_code;
 
     switch (p_event->evt_type)
     {
         case APP_UART_DATA_READY:
-            UNUSED_VARIABLE(app_uart_get(&data_array[index]));
-            index++;
+//            UNUSED_VARIABLE(app_uart_get(&data_array[index]));
+//            index++;
+            UNUSED_VARIABLE(app_uart_get(&data));
+        
+            Lin_data_ready(data);
 
-
-            if ((data_array[index - 1] == '\n') || (index >= (BLE_NUS_MAX_DATA_LEN)))
-            {
+//            if ((data_array[index - 1] == '\n') || (index >= (BLE_NUS_MAX_DATA_LEN)))
+//            {
+////                err_code = ble_nus_string_send(&m_nus, data_array, index);
+////                if (err_code != NRF_ERROR_INVALID_STATE)
+////                {
+////                    APP_ERROR_CHECK(err_code);
+////                }
 //                err_code = ble_nus_string_send(&m_nus, data_array, index);
 //                if (err_code != NRF_ERROR_INVALID_STATE)
 //                {
 //                    APP_ERROR_CHECK(err_code);
 //                }
-                err_code = ble_nus_string_send(&m_nus, data_array, index);
-                if (err_code != NRF_ERROR_INVALID_STATE)
-                {
-                    APP_ERROR_CHECK(err_code);
-                }
 
-                index = 0;
-            }
+//                index = 0;
+//            }
             break;
 
           case APP_UART_COMMUNICATION_ERROR:
@@ -1382,6 +1411,9 @@ void uart_event_handle(app_uart_evt_t * p_event)
 //        case APP_UART_FIFO_ERROR:
 //            APP_ERROR_HANDLER(p_event->data.error_code);
 //            break;
+          case APP_UART_TX_EMPTY:
+              Lin_data_tx_done();
+              break;
 
         default:
             break;
@@ -1401,7 +1433,7 @@ void uart_init(void)
         CTS_PIN_NUMBER,//,12
         APP_UART_FLOW_CONTROL_DISABLED,
         false,
-        UART_BAUDRATE_BAUDRATE_Baud57600
+        UART_BAUDRATE_BAUDRATE_Baud19200
     };
 
     APP_UART_FIFO_INIT( &comm_params,
@@ -1500,6 +1532,8 @@ int main(void)
     APP_ERROR_CHECK(err_code);
     uart_init();
     timers_init();
+  
+  Lin_data_init();
 	
 //	// ¹Ø±ÕLED2¡¢3¡¢4
 //	nrf_gpio_cfg_output(LED_PIN_NUMBER);
@@ -1524,40 +1558,40 @@ int main(void)
 	nrf_gpio_cfg_output(20);
 	nrf_gpio_pin_write(20, LEDS_ACTIVE_STATE ? 0 : 1);
     
-	nrf_gpio_cfg_output(21);
-	nrf_gpio_pin_write(21, LEDS_ACTIVE_STATE ? 0 : 1);
-	nrf_gpio_cfg_output(22);
-	nrf_gpio_pin_write(22, LEDS_ACTIVE_STATE ? 0 : 1);
+//	nrf_gpio_cfg_output(21);
+//	nrf_gpio_pin_write(21, LEDS_ACTIVE_STATE ? 0 : 1);
+//	nrf_gpio_cfg_output(22);
+//	nrf_gpio_pin_write(22, LEDS_ACTIVE_STATE ? 0 : 1);
 //    
 
-	nrf_gpio_cfg_output(28);
-	nrf_gpio_pin_write(28, LEDS_ACTIVE_STATE ? 0 : 1);
-	nrf_gpio_cfg_output(29);
-	nrf_gpio_pin_write(29, LEDS_ACTIVE_STATE ? 0 : 1);
+//	nrf_gpio_cfg_output(28);
+//	nrf_gpio_pin_write(28, LEDS_ACTIVE_STATE ? 0 : 1);
+//	nrf_gpio_cfg_output(29);
+//	nrf_gpio_pin_write(29, LEDS_ACTIVE_STATE ? 0 : 1);
 
-    nrf_gpio_cfg_output(30);
-	nrf_gpio_pin_write(30, LEDS_ACTIVE_STATE ? 0 : 1);
-    nrf_gpio_cfg_output(0);
-	nrf_gpio_pin_write(0, LEDS_ACTIVE_STATE ? 0 : 1);
+//    nrf_gpio_cfg_output(30);
+//	nrf_gpio_pin_write(30, LEDS_ACTIVE_STATE ? 0 : 1);
+//    nrf_gpio_cfg_output(0);
+//	nrf_gpio_pin_write(0, LEDS_ACTIVE_STATE ? 0 : 1);
     
     
-    nrf_gpio_pin_write(21, LEDS_ACTIVE_STATE ? 1 : 0);
-    nrf_delay_ms(200);
-    
-    nrf_gpio_pin_write(21, LEDS_ACTIVE_STATE ? 0 : 1);
-    nrf_delay_ms(200);
-	
-    nrf_gpio_pin_write(21, LEDS_ACTIVE_STATE ? 1 : 0);
-    nrf_delay_ms(200);
-    
-    nrf_gpio_pin_write(21, LEDS_ACTIVE_STATE ? 0 : 1);
-    nrf_delay_ms(200);
-	
-    nrf_gpio_pin_write(21, LEDS_ACTIVE_STATE ? 1 : 0);
-    nrf_delay_ms(200);
-    
-    nrf_gpio_pin_write(21, LEDS_ACTIVE_STATE ? 0 : 1);
-    nrf_delay_ms(200);
+//    nrf_gpio_pin_write(21, LEDS_ACTIVE_STATE ? 1 : 0);
+//    nrf_delay_ms(200);
+//    
+//    nrf_gpio_pin_write(21, LEDS_ACTIVE_STATE ? 0 : 1);
+//    nrf_delay_ms(200);
+//	
+//    nrf_gpio_pin_write(21, LEDS_ACTIVE_STATE ? 1 : 0);
+//    nrf_delay_ms(200);
+//    
+//    nrf_gpio_pin_write(21, LEDS_ACTIVE_STATE ? 0 : 1);
+//    nrf_delay_ms(200);
+//	
+//    nrf_gpio_pin_write(21, LEDS_ACTIVE_STATE ? 1 : 0);
+//    nrf_delay_ms(200);
+//    
+//    nrf_gpio_pin_write(21, LEDS_ACTIVE_STATE ? 0 : 1);
+//    nrf_delay_ms(200);
 	
 //    open_door_manage_init(&g_open_door_manage);
     
