@@ -1431,6 +1431,7 @@ void uart_init(void)
         TX_PIN_NUMBER,//,6
         RTS_PIN_NUMBER,//,7
         CTS_PIN_NUMBER,//,12
+//        5,6,7,12,
         APP_UART_FLOW_CONTROL_DISABLED,
         false,
         UART_BAUDRATE_BAUDRATE_Baud19200

@@ -114,10 +114,10 @@ void Lin_data_ready(uint8_t byte)
     case Lin_Send_State_NA:
       break;
     case Lin_Send_State_Break:
-      Lin_Send_0x55_PID();
-    
-      LIN_RECE_INDEX = 0;
-      LIN_RECEIVE[LIN_RECE_INDEX++] = 0;
+//      Lin_Send_0x55_PID();
+//    
+//      LIN_RECE_INDEX = 0;
+//      LIN_RECEIVE[LIN_RECE_INDEX++] = 0;
     
       break;
     case Lin_Send_State_0x55_PID:
@@ -163,6 +163,11 @@ void Lin_data_tx_done(void)
     case Lin_Send_State_NA:
       break;
     case Lin_Send_State_Break:
+      Lin_Send_0x55_PID();
+    
+      LIN_RECE_INDEX = 0;
+      LIN_RECEIVE[LIN_RECE_INDEX++] = 0;
+    
       break;
     case Lin_Send_State_0x55_PID:
       ID = LIN_receive_id;
