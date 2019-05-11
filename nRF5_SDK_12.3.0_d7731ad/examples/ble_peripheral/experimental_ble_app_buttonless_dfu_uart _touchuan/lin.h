@@ -19,13 +19,13 @@ typedef struct {
     char     press;     // ID发布
     char     receive;   // ID接收
     char     send_one_time_enable;   //  是否偶发信号  1 定时发  0 偶发
-    char     send_one_time_active;   //  发送一次
+    volatile char     send_one_time_active;   //  发送一次
     uint8_t  data[8];
     
 } lin_data_t;
 
 #define IS_SLAVE        0       // 是否从机
-#define LIN_DATA_LEN    0x3a
+#define LIN_DATA_LEN    0x40
 extern lin_data_t lin_data[LIN_DATA_LEN];
 
 

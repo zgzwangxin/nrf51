@@ -522,18 +522,20 @@ static void gap_params_init(void)
 /**@snippet [Handling the data received over BLE] */
 static void nus_data_handler(ble_nus_t * p_nus, uint8_t * p_data, uint16_t length)
 {
-  uint8_t len, ID;
+  uint8_t  ID = 0x31, len;
   
-  if (p_data[0] == 0xaa && Lin_CheckPID(p_data[1])) {
+  if (p_data[0] == 0x55 && Lin_CheckPID(p_data[1]) == 0) {
     
     ID = p_data[1] & 0x3f;
-    len = 0x01 << (((ID >> 4) & 0x03) + 1);
+//    len = 0x01 << (((ID >> 4) & 0x03));
+    len = 8;
     
     if (Lin_Check_Sum(p_data + 2, len) == p_data[len + 2]) {
       
       Lin_ID_data_press(ID, p_data + 2);
     }
   }
+//  Lin_ID_data_press(ID, p_data + 2);
   
 //    for (uint32_t i = 0; i < length; i++)
 //    {
@@ -1402,6 +1404,8 @@ void uart_event_handle(app_uart_evt_t * p_event)
 //            
               app_uart_close();
               uart_init();
+          
+            break;
             
 //        case APP_UART_COMMUNICATION_ERROR:
 //        
@@ -1427,11 +1431,11 @@ void uart_init(void)
     uint32_t                     err_code;
     const app_uart_comm_params_t comm_params =
     {
-        RX_PIN_NUMBER,//,5
-        TX_PIN_NUMBER,//,6
-        RTS_PIN_NUMBER,//,7
-        CTS_PIN_NUMBER,//,12
-//        5,6,7,12,
+//        RX_PIN_NUMBER,//,5
+//        TX_PIN_NUMBER,//,6
+//        RTS_PIN_NUMBER,//,7
+//        CTS_PIN_NUMBER,//,12
+        5,6,7,12,
         APP_UART_FLOW_CONTROL_DISABLED,
         false,
         UART_BAUDRATE_BAUDRATE_Baud19200
@@ -1444,6 +1448,9 @@ void uart_init(void)
                        APP_IRQ_PRIORITY_LOWEST,
                        err_code);
     APP_ERROR_CHECK(err_code);
+    
+    
+    nrf_gpio_cfg_input(comm_params.rx_pin_no, NRF_GPIO_PIN_PULLUP);
 }
 /**@snippet [UART Initialization] */
 

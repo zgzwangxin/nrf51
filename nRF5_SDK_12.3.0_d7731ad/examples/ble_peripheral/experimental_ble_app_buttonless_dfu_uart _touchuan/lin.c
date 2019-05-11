@@ -8,6 +8,7 @@
 #include "app_uart.h"
 #include "nrf_uart.h"
 #include "nrf_uart.h"
+#include "nrf_gpio.h"
 //#include "Global.h"
 
 lin_data_t lin_data[LIN_DATA_LEN] = {0};
@@ -16,7 +17,7 @@ uint8_t LIN_RECEIVE[50]={0};
 uint8_t LIN_RECE_INDEX=0;
 uint8_t data_i=0;
 uint8_t LIN_SENDDATA[2]={0x7E,0x7F};
-static uint8_t LIN_receive_id, LIN_receive_data_len;
+static uint8_t LIN_receive_id;
 
 static uint8_t Lin_init_flag = 0;
 
@@ -46,20 +47,38 @@ enum {
   
 } Lin_Send_State;
 
+
+enum {
+  Lin_Recv_State_NA = 0,
+  Lin_Recv_State_Break = 1,
+  Lin_Recv_State_0x55,
+  Lin_Recv_State_PID,
+  Lin_Recv_State_Data,
+  Lin_Recv_State_checkSum
+  
+} Lin_Recv_State;
+uint8_t Lin_data_recv_idx = 0;
+uint8_t Lin_data_recv_buf[15];
+
+
 uint8_t Lin_ID_to_PID(uint8_t ID);
 
 int Lin_SendBreak(void)
 {
-  if (lin_data_sending && 
-      Lin_Send_State == Lin_Send_State_Data_recv
-  ) {
-    lin_data_sending = false;
-    Lin_Send_State = Lin_Send_State_NA;
-  }
-  if (uart_data_sending || lin_data_sending) { return -1;}
+//  if (lin_data_sending && 
+//      Lin_Send_State == Lin_Send_State_Data_recv
+//  ) {
+//    lin_data_sending = false;
+//    Lin_Send_State = Lin_Send_State_NA;
+//  }
+//  if (uart_data_sending || lin_data_sending) { return -1;}
   lin_data_sending = true;
   uart_data_sending = true;
   Lin_Send_State = Lin_Send_State_Break;
+  
+  Lin_data_recv_idx = 0;
+  Lin_Recv_State = Lin_Recv_State_Break;
+  
   nrf_uart_baudrate_set(NRF_UART0, NRF_UART_BAUDRATE_9600);
   app_uart_put(0);
   return 0;
@@ -104,53 +123,67 @@ uint8_t Lin_ID_to_PID(uint8_t ID)
 
 void send_string(uint8_t * p_string, uint16_t length);
 
+
 void Lin_data_ready(uint8_t byte)
 {
-  uint8_t ID = 0, i = 0;
-  ID = LIN_receive_id;
-  LIN_receive_data_len = 0x01 << (((ID >> 4) & 0x03) + 1);
-  switch (Lin_Send_State)
-  {
-    case Lin_Send_State_NA:
-      break;
-    case Lin_Send_State_Break:
-//      Lin_Send_0x55_PID();
-//    
-//      LIN_RECE_INDEX = 0;
-//      LIN_RECEIVE[LIN_RECE_INDEX++] = 0;
-    
-      break;
-    case Lin_Send_State_0x55_PID:
-      LIN_RECEIVE[LIN_RECE_INDEX++] = byte;
-      break;
-    case Lin_Send_State_Data_recv:
-      LIN_RECEIVE[LIN_RECE_INDEX++] = byte;
-        if (LIN_RECE_INDEX >= 3 + LIN_receive_data_len)
-        {
-            //check sum
-            if(Lin_Check_Sum(LIN_RECEIVE + 3, LIN_receive_data_len) == LIN_RECEIVE[LIN_RECE_INDEX])
-            {
-                for (i = 0; i < 3 + LIN_receive_data_len; i++)
-                {
-                    lin_data[LIN_receive_id].data[i] =  LIN_RECEIVE[3 + i];
-                }
-//                lin_data[LIN_receive_id].data[0] =  LIN_RECEIVE[3];
-//                lin_data[LIN_receive_id].data[1] =  LIN_RECEIVE[4];
-                
-                lin_data[LIN_receive_id].update = 1;
-                send_string(LIN_RECEIVE + 1, 3 + LIN_receive_data_len);
+    static uint8_t lin_rec_id;
+    uint8_t i = 0;
 
-            }
-            else
-            {
-                //Lin Bus ERROR
-            }
-            LIN_RECE_INDEX = 0;
-            Lin_Send_State = Lin_Send_State_NA;
-            lin_data_sending = false;
+    switch (Lin_Recv_State)
+    {
+      case Lin_Recv_State_NA:
+        break;
+      case Lin_Recv_State_Break:
+        if (byte == 0) {
+          Lin_data_recv_idx = 0;
+          Lin_data_recv_buf[Lin_data_recv_idx] = byte;
+          Lin_data_recv_idx++;
+          Lin_Recv_State = Lin_Recv_State_0x55;
         }
-      break;
-  }
+        break;
+      case Lin_Recv_State_0x55:
+        if (byte == 0x55) {
+          Lin_data_recv_buf[Lin_data_recv_idx] = byte;
+          Lin_data_recv_idx++;
+          Lin_Recv_State = Lin_Recv_State_PID;
+        } else {
+          Lin_Recv_State = Lin_Recv_State_Break;
+        }
+        break;
+      case Lin_Recv_State_PID:
+        if (Lin_CheckPID(byte) == 0) {
+          lin_rec_id = byte & 0x3f;
+          Lin_data_recv_buf[Lin_data_recv_idx] = byte;
+          Lin_data_recv_idx++;
+          Lin_Recv_State = Lin_Recv_State_Data;
+        } else {
+          Lin_Recv_State = Lin_Recv_State_Break;
+        }
+        break;
+      case Lin_Recv_State_Data:
+        Lin_data_recv_buf[Lin_data_recv_idx++] = byte;
+        if (Lin_data_recv_idx >= 3 + 8) {
+          Lin_Recv_State = Lin_Recv_State_checkSum;
+        }
+        break;
+      case Lin_Recv_State_checkSum:
+        Lin_data_recv_buf[Lin_data_recv_idx++] = byte;
+        if (Lin_Check_Sum(Lin_data_recv_buf + 3, 8) == byte) {
+          nrf_gpio_pin_toggle(19);
+          for (i = 0; i < 8; i++) {
+              lin_data[lin_rec_id].data[i] =  Lin_data_recv_buf[3 + i];
+          }
+          lin_data[lin_rec_id].update = 1;
+          
+          send_string(Lin_data_recv_buf + 1, 3 + 8);
+          
+        } else {
+          Lin_Recv_State = Lin_Recv_State_Break;
+        }
+        
+        break;
+
+    }
 }
 
 void Lin_data_tx_done(void)
@@ -171,20 +204,22 @@ void Lin_data_tx_done(void)
       break;
     case Lin_Send_State_0x55_PID:
       ID = LIN_receive_id;
-      LIN_receive_data_len = 0x01 << (((ID >> 4) & 0x03) + 1);
+//      LIN_receive_data_len = 0x01 << (((ID >> 4) & 0x03) + 1);
       if (lin_data[ID].enable)
       {
           if (lin_data[ID].press)
           {
-              for (i = 0; i < LIN_receive_data_len; i++)
+            
+              //for (i = 0; i < LIN_receive_data_len; i++)
+              for (i = 0; i < 8; i++)
               {
                   LIN_RECEIVE[3 + i] = lin_data[ID].data[i];
               }
-              LIN_RECEIVE[3 + i] = Lin_Check_Sum(LIN_RECEIVE + 3, i);
+              LIN_RECEIVE[3 + 8] = Lin_Check_Sum(LIN_RECEIVE + 3, 8);
               
-              Lin_SendData(LIN_RECEIVE + 3, i + 1);
+              Lin_SendData(LIN_RECEIVE + 3, 9);
         
-              lin_data[ID].send_one_time_active --;
+              lin_data[ID].send_one_time_active = 0;
               
               Lin_Send_State = Lin_Send_State_Data_send;
           }
@@ -203,7 +238,7 @@ void Lin_data_tx_done(void)
           Lin_Send_State = Lin_Send_State_NA;
           lin_data_sending = false;
       }
-    break;
+      break;
     case Lin_Send_State_Data_send:
       Lin_Send_State = Lin_Send_State_NA;
       lin_data_sending = false;
@@ -389,7 +424,7 @@ uint8_t Lin_Check_Sum(uint8_t* Checksum_Buffer, uint8_t Data_Number)
 
 void Lin_data_init(void)
 {
-    int i, j;
+    int i;
     
     memset(lin_data, 0, sizeof(lin_data));
     
@@ -401,7 +436,16 @@ void Lin_data_init(void)
         lin_data[i].receive  = 0;
         lin_data[i].send_one_time_enable = 1;
     }
+    lin_data[0x31].data[0] = 'H';
+    lin_data[0x31].data[1] = 'e';
+    lin_data[0x31].data[2] = 'l';
+    lin_data[0x31].data[3] = 'l';
+    lin_data[0x31].data[4] = 'o';
+    lin_data[0x31].data[5] = ' ';
+    lin_data[0x31].data[6] = 'X';
+    lin_data[0x31].data[7] = '\0';
     
+    /*
     // 本机接收
     for (i = 0x32; i <= 0x35; i++)
     {
@@ -436,6 +480,7 @@ void Lin_data_init(void)
         //    lin_data[i].data[j] = 0xff;
         }
     }
+    */
     
 //    // 0x3c是主机发布的ID  诊断帧 主机请求帧ID=0x3c 应答部分的发布节点为主机节点  
 //    for (i = 0x3c; i <= 0x3c; i++)
@@ -484,7 +529,7 @@ int Lin_ID_data_press(const uint8_t ID, const uint8_t data[8])
     if (lin_data[ID & 0x3f].send_one_time_enable)
     {
         // 设置发送一次的标志
-        lin_data[ID & 0x3f].send_one_time_active += 2;
+        lin_data[ID & 0x3f].send_one_time_active = 1;
     }
     return 0;
 }
@@ -508,7 +553,7 @@ static int is_ID_execute(uint8_t id)
         if (lin_data[id].send_one_time_enable)
         {
             // 发送
-            if (lin_data[id].send_one_time_active)
+            if (lin_data[id].send_one_time_active > 0)
             {
                 return 1;
             }
@@ -556,7 +601,7 @@ void Lin_master_go(void)
             id = 0;
         }
         cnt ++;
-    } while ((! is_ID_execute(id)) && cnt <= 0x40);
+    } while ((! is_ID_execute(id)) && cnt <= LIN_DATA_LEN);
     
     if (cnt <= LIN_DATA_LEN)
     {
