@@ -401,13 +401,9 @@ static void soft_timer1_timer_handler(void * p_context)
 
     UNUSED_PARAMETER(p_context);
     
-//    nrf_gpio_pin_write(16, LEDS_ACTIVE_STATE ? 1 : 0);
-//    
 //    battery_voltage_check_state(&g_battery_voltage_manage);
-
-//    nrf_gpio_pin_write(16, LEDS_ACTIVE_STATE ? 0 : 1);
   
-  Lin_master_go();
+    Lin_master_go();
 }
 
 
@@ -527,15 +523,15 @@ static void nus_data_handler(ble_nus_t * p_nus, uint8_t * p_data, uint16_t lengt
   if (p_data[0] == 0x55 && Lin_CheckPID(p_data[1]) == 0) {
     
     ID = p_data[1] & 0x3f;
-//    len = 0x01 << (((ID >> 4) & 0x03));
     len = 8;
+    len = Lin_ID_to_len(ID);
     
     if (Lin_Check_Sum(p_data + 2, len) == p_data[len + 2]) {
       
       Lin_ID_data_press(ID, p_data + 2);
     }
   }
-//  Lin_ID_data_press(ID, p_data + 2);
+  Lin_ID_data_press(ID, NULL);
   
 //    for (uint32_t i = 0; i < length; i++)
 //    {
@@ -1364,35 +1360,15 @@ void uart_init(void);
 /**@snippet [Handling the data received over UART] */
 void uart_event_handle(app_uart_evt_t * p_event)
 {
-//    static uint8_t data_array[BLE_NUS_MAX_DATA_LEN];
-//    static uint8_t index = 0;
-  uint8_t data;
-//    uint32_t       err_code;
+    uint8_t data;
 
     switch (p_event->evt_type)
     {
         case APP_UART_DATA_READY:
-//            UNUSED_VARIABLE(app_uart_get(&data_array[index]));
-//            index++;
+
             UNUSED_VARIABLE(app_uart_get(&data));
-        
             Lin_data_ready(data);
 
-//            if ((data_array[index - 1] == '\n') || (index >= (BLE_NUS_MAX_DATA_LEN)))
-//            {
-////                err_code = ble_nus_string_send(&m_nus, data_array, index);
-////                if (err_code != NRF_ERROR_INVALID_STATE)
-////                {
-////                    APP_ERROR_CHECK(err_code);
-////                }
-//                err_code = ble_nus_string_send(&m_nus, data_array, index);
-//                if (err_code != NRF_ERROR_INVALID_STATE)
-//                {
-//                    APP_ERROR_CHECK(err_code);
-//                }
-
-//                index = 0;
-//            }
             break;
 
           case APP_UART_COMMUNICATION_ERROR:
@@ -1541,70 +1517,22 @@ int main(void)
     uart_init();
     timers_init();
   
-  Lin_data_init();
+    Lin_data_init();
 	
-//	// 关闭LED2、3、4
-//	nrf_gpio_cfg_output(LED_PIN_NUMBER);
-//	nrf_gpio_pin_write(LED_PIN_NUMBER, LEDS_ACTIVE_STATE ? 0 : 1);
-    
-//    // 指纹模块的touch信号
-//    nrf_gpio_cfg_input(FENGER_TOUCH_PIN_NUMBER, NRF_GPIO_PIN_PULLDOWN);
-    
-//    // 控制指纹模块的低功耗
-//    nrf_gpio_cfg_output(FENGER_TOUCH_ON_PIN_NUMBER);
-////	nrf_gpio_pin_write(FENGER_TOUCH_ON_PIN_NUMBER, FENGER_TOUCH_ON_ACTIVE_LEVEL ? 1 : 0);
-//	nrf_gpio_pin_write(FENGER_TOUCH_ON_PIN_NUMBER, FENGER_TOUCH_ON_ACTIVE_LEVEL ? 0 : 1);
-    
-    // 
-    nrf_gpio_cfg_output(ADC_ON_PIN_NUMBER);
-	nrf_gpio_pin_write(ADC_ON_PIN_NUMBER, ADC_ON_ACTIVE_LEVEL ? 0 : 1);
-    
-    nrf_gpio_cfg_output(16);
     
 	nrf_gpio_cfg_output(19);
 	nrf_gpio_pin_write(19, LEDS_ACTIVE_STATE ? 0 : 1);
 	nrf_gpio_cfg_output(20);
 	nrf_gpio_pin_write(20, LEDS_ACTIVE_STATE ? 0 : 1);
-    
-//	nrf_gpio_cfg_output(21);
-//	nrf_gpio_pin_write(21, LEDS_ACTIVE_STATE ? 0 : 1);
-//	nrf_gpio_cfg_output(22);
-//	nrf_gpio_pin_write(22, LEDS_ACTIVE_STATE ? 0 : 1);
-//    
+  nrf_gpio_cfg_output(21);
+	nrf_gpio_pin_write(21, LEDS_ACTIVE_STATE ? 0 : 1);
+  nrf_gpio_cfg_output(22);
+	nrf_gpio_pin_write(22, LEDS_ACTIVE_STATE ? 0 : 1);
 
-//	nrf_gpio_cfg_output(28);
-//	nrf_gpio_pin_write(28, LEDS_ACTIVE_STATE ? 0 : 1);
-//	nrf_gpio_cfg_output(29);
-//	nrf_gpio_pin_write(29, LEDS_ACTIVE_STATE ? 0 : 1);
+  nrf_gpio_cfg_output(30);
+	nrf_gpio_pin_write(30, LEDS_ACTIVE_STATE ? 0 : 1);
 
-//    nrf_gpio_cfg_output(30);
-//	nrf_gpio_pin_write(30, LEDS_ACTIVE_STATE ? 0 : 1);
-//    nrf_gpio_cfg_output(0);
-//	nrf_gpio_pin_write(0, LEDS_ACTIVE_STATE ? 0 : 1);
-    
-    
-//    nrf_gpio_pin_write(21, LEDS_ACTIVE_STATE ? 1 : 0);
-//    nrf_delay_ms(200);
-//    
-//    nrf_gpio_pin_write(21, LEDS_ACTIVE_STATE ? 0 : 1);
-//    nrf_delay_ms(200);
-//	
-//    nrf_gpio_pin_write(21, LEDS_ACTIVE_STATE ? 1 : 0);
-//    nrf_delay_ms(200);
-//    
-//    nrf_gpio_pin_write(21, LEDS_ACTIVE_STATE ? 0 : 1);
-//    nrf_delay_ms(200);
-//	
-//    nrf_gpio_pin_write(21, LEDS_ACTIVE_STATE ? 1 : 0);
-//    nrf_delay_ms(200);
-//    
-//    nrf_gpio_pin_write(21, LEDS_ACTIVE_STATE ? 0 : 1);
-//    nrf_delay_ms(200);
-	
-//    open_door_manage_init(&g_open_door_manage);
-    
-//    finger_mark_manage_state_machine_init(&g_finger_mark_manage_state_machine);
-    
+   
     battery_voltage_init(&g_battery_voltage_manage);
         
     buttons_leds_init(&erase_bonds);
@@ -1614,8 +1542,6 @@ int main(void)
     {
         NRF_LOG_DEBUG("Bonds erased!\r\n");
     }
-    
-//    sensor_simulator_init();
     
 //    err_code =  sd_ble_gap_tx_power_set(4);
 //    APP_ERROR_CHECK(err_code);
@@ -1633,9 +1559,6 @@ int main(void)
     APP_ERROR_CHECK(err_code);
     NRF_LOG_DEBUG("advertising is started\r\n");
     
-    nrf_gpio_cfg_output(20);
-	nrf_gpio_pin_write(20, LEDS_ACTIVE_STATE ? 0 : 1);
-
     ble_bas_battery_level_update(&m_bas, 1);
     
     

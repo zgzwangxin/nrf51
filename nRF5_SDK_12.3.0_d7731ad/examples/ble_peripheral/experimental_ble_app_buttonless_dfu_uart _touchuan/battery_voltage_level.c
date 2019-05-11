@@ -120,15 +120,6 @@ int battery_voltage_init(battery_voltage_manage_t *p_battery_voltage_manage)
     }
     p_battery_voltage_manage->state =   BATTERY_VOLTAGE_START;
     
-//    p_battery_voltage_manage->data.sample_cnt   =   0;
-//    p_battery_voltage_manage->data.sample_N     =   ADC_BUFFER_SIZE;
-//    
-//    p_battery_voltage_manage->data.start_wait_timeout_cnt  =   0;
-//    p_battery_voltage_manage->data.start_wait_timeout_N  =   1;
-//    
-//    p_battery_voltage_manage->data.sample_wait_timeout_cnt  =   0;
-//    p_battery_voltage_manage->data.sample_wait_timeout_N    =   11;
-    
     p_battery_voltage_manage->data.restart_wait_timeout_cnt =   0;
     p_battery_voltage_manage->data.restart_wait_timeout_N   =   MS_TO_CNT(10 * 1000, TIMER1_CIRCLE_MS);   // 10 S
     
@@ -137,6 +128,8 @@ int battery_voltage_init(battery_voltage_manage_t *p_battery_voltage_manage)
     
     // 温度传感器初始化
     nrf_temp_init();
+    
+    nrf_gpio_cfg_output(ADC_ON_PIN_NUMBER);
 
     return 0;
 }
@@ -161,9 +154,6 @@ int battery_voltage_check_state(battery_voltage_manage_t *p_battery_voltage_mana
         
             APP_ERROR_CHECK(nrf_drv_adc_buffer_convert(adc_buffer,ADC_BUFFER_SIZE));
         
-//            p_battery_voltage_manage->data.sample_cnt               =   0;
-//            p_battery_voltage_manage->data.start_wait_timeout_cnt   =   0;
-//            p_battery_voltage_manage->data.sample_wait_timeout_cnt  =   0;
             p_battery_voltage_manage->data.restart_wait_timeout_cnt =   0;
         
             // 开始测温
@@ -191,56 +181,6 @@ int battery_voltage_check_state(battery_voltage_manage_t *p_battery_voltage_mana
             p_battery_voltage_manage->state = BATTERY_VOLTAGE_AD_RESTART_WAIT;
             
             break;
-    
-//        case BATTERY_VOLTAGE_AD_START_WAIT:
-//            p_battery_voltage_manage->data.start_wait_timeout_cnt++;
-//            if (p_battery_voltage_manage->data.start_wait_timeout_cnt >= 
-//                p_battery_voltage_manage->data.start_wait_timeout_N
-//            )
-//            {
-//                p_battery_voltage_manage->data.start_wait_timeout_cnt = 0;
-//                
-//                p_battery_voltage_manage->state = BATTERY_VOLTAGE_AD_SAMPLE;
-//                
-//            }
-//            break;
-//        
-//        case BATTERY_VOLTAGE_AD_SAMPLE:
-//            
-//            p_battery_voltage_manage->data.sample_cnt ++;
-//        
-//            nrf_drv_adc_sample();
-//            p_battery_voltage_manage->data.sample_wait_timeout_cnt  =   0;
-//            
-//            p_battery_voltage_manage->state = BATTERY_VOLTAGE_AD_SAMPLE_WAIT;
-//        
-//            break;
-//        
-//        case BATTERY_VOLTAGE_AD_SAMPLE_WAIT:
-//            
-//            p_battery_voltage_manage->data.sample_wait_timeout_cnt ++;
-//        
-//            if (p_battery_voltage_manage->data.sample_wait_timeout_cnt >=
-//                p_battery_voltage_manage->data.sample_wait_timeout_N
-//            )
-//            {
-//                p_battery_voltage_manage->data.sample_wait_timeout_cnt = 0;
-//                
-//                if (p_battery_voltage_manage->data.sample_cnt >=
-//                    p_battery_voltage_manage->data.sample_N
-//                ) 
-//                {
-//                    p_battery_voltage_manage->data.sample_cnt = 0;
-//                    
-//                    p_battery_voltage_manage->state = BATTERY_VOLTAGE_AD_RESTART_WAIT;
-//                }
-//                else
-//                {
-//                    p_battery_voltage_manage->state = BATTERY_VOLTAGE_AD_SAMPLE;
-//                }
-//            }
-//            
-//            break;
         
         case BATTERY_VOLTAGE_AD_RESTART_WAIT:
             

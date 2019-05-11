@@ -12,19 +12,13 @@ extern "C" {
 #endif
 
 
-#define ADC_ON_PIN_NUMBER       02
-#define ADC_ON_ACTIVE_LEVEL     01
+#define ADC_ON_PIN_NUMBER       0
+#define ADC_ON_ACTIVE_LEVEL     1
 
 
 typedef enum {
     
     BATTERY_VOLTAGE_START,
-    
-//    BATTERY_VOLTAGE_AD_START_WAIT,
-//    
-//    BATTERY_VOLTAGE_AD_SAMPLE,
-//    
-//    BATTERY_VOLTAGE_AD_SAMPLE_WAIT,
     
     BATTERY_VOLTAGE_AD_RESTART_WAIT,
     
@@ -32,15 +26,6 @@ typedef enum {
 
 typedef struct {
     
-//    uint32_t    sample_cnt;
-//    uint32_t    sample_N;
-    
-//    uint32_t    start_wait_timeout_cnt;
-//    uint32_t    start_wait_timeout_N;
-//    
-//    uint32_t    sample_wait_timeout_cnt;
-//    uint32_t    sample_wait_timeout_N;
-//    
     uint32_t    restart_wait_timeout_cnt;
     uint32_t    restart_wait_timeout_N;
     
