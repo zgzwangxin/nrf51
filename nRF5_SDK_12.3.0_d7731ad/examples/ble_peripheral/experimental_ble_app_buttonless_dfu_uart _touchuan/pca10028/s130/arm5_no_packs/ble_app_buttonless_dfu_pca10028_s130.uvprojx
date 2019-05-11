@@ -82,7 +82,7 @@
           <AfterMake>
             <RunUserProg1>1</RunUserProg1>
             <RunUserProg2>0</RunUserProg2>
-            <UserProg1Name>G:\蓝牙\nRF5_SDK_12.3.0_d7731ad\examples\ble_peripheral\experimental_ble_app_buttonless_dfu_uart\pca10028\s130\arm5_no_packs\gen_output.bat</UserProg1Name>
+            <UserProg1Name>".\gen_output.bat"</UserProg1Name>
             <UserProg2Name>G:\蓝牙\nRF5_SDK_12.3.0_d7731ad\examples\ble_peripheral\experimental_ble_app_buttonless_dfu_uart\pca10028\s130\arm5_no_packs\gen_pkg.bat</UserProg2Name>
             <UserProg1Dos16Mode>0</UserProg1Dos16Mode>
             <UserProg2Dos16Mode>0</UserProg2Dos16Mode>
@@ -399,6 +399,11 @@
               <FileName>battery_voltage_level.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\battery_voltage_level.c</FilePath>
+            </File>
+            <File>
+              <FileName>lin.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\lin.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -3593,6 +3598,11 @@
               <FileName>battery_voltage_level.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\battery_voltage_level.c</FilePath>
+            </File>
+            <File>
+              <FileName>lin.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\lin.c</FilePath>
             </File>
           </Files>
         </Group>

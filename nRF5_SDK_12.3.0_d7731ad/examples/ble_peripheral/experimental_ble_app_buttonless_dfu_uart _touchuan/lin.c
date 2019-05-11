@@ -10,12 +10,15 @@
 #include "nrf_uart.h"
 #include "nrf_gpio.h"
 
+#include "global.h"
+
+
 lin_data_t lin_data[LIN_DATA_LEN] = {0};
 
 uint8_t Lin_data_send_buf[13] = {0};
 uint8_t Lin_data_send_idx = 0;
 
-static uint8_t Lin_execute_current_ID;
+volatile static uint8_t Lin_execute_current_ID;
 
 static uint8_t Lin_init_flag = 0;
 
@@ -24,7 +27,7 @@ static uint8_t Lin_init_flag = 0;
 static bool volatile uart_data_sending = false;
 static bool volatile lin_data_sending = false;
 
-enum {
+volatile enum {
   Lin_Send_State_NA = 0,
   Lin_Send_State_Break = 1,
   Lin_Send_State_0x55_PID,
@@ -33,7 +36,7 @@ enum {
 } Lin_Send_State;
 
 
-enum {
+volatile enum {
   Lin_Recv_State_NA = 0,
   Lin_Recv_State_Break = 1,
   Lin_Recv_State_0x55,
@@ -157,12 +160,23 @@ void Lin_data_ready(uint8_t byte)
         }
         break;
       case Lin_Recv_State_Data:
+        
         Lin_data_recv_buf[Lin_data_recv_idx++] = byte;
         if (Lin_data_recv_idx >= 3 + lin_data_len) {
           Lin_Recv_State = Lin_Recv_State_checkSum;
+          nrf_gpio_pin_write(19, 1);
+          if (is_connected) {
+            nrf_gpio_pin_write(30, 1);
+            nrf_gpio_pin_write(20, 1);
+          }
         }
         break;
       case Lin_Recv_State_checkSum:
+        nrf_gpio_pin_write(19, 0);
+        if (is_connected) {
+            nrf_gpio_pin_write(30, 0);
+            nrf_gpio_pin_write(20, 0);
+        }
         Lin_data_recv_buf[Lin_data_recv_idx++] = byte;
         if (Lin_Check_Sum(Lin_data_recv_buf + 3, lin_data_len) == byte) {
             
@@ -170,10 +184,8 @@ void Lin_data_ready(uint8_t byte)
                 lin_data[lin_rec_id].data[i] =  Lin_data_recv_buf[3 + i];
             }
             lin_data[lin_rec_id].update = 1;
-            nrf_gpio_pin_toggle(19);
-//            nrf_gpio_pin_write(19, 1);
+            
             send_string(Lin_data_recv_buf + 1, 3 + lin_data_len);
-//            nrf_gpio_pin_write(19, 0);
             
         } else {
             Lin_Recv_State = Lin_Recv_State_Break;
@@ -202,18 +214,24 @@ void Lin_data_tx_done(void)
       ID = Lin_execute_current_ID & 0x3f;
       lin_data_len = Lin_ID_to_len(ID);
 
-      for (i = 0; i < lin_data_len; i++)
-      {
-          Lin_data_send_buf[3 + i] = lin_data[ID].data[i];
+      if (lin_data[ID].enable && lin_data[ID].press) {
+        
+          for (i = 0; i < lin_data_len; i++)
+          {
+              Lin_data_send_buf[3 + i] = lin_data[ID].data[i];
+          }
+          Lin_data_send_buf[3 + lin_data_len] = Lin_Check_Sum(Lin_data_send_buf + 3, lin_data_len);
+          
+          Lin_SendData(Lin_data_send_buf + 3, lin_data_len + 1);
+
+          lin_data[ID].send_one_time_active --;
+          
+          Lin_Send_State = Lin_Send_State_Data_send;
+      } else {
+          Lin_Send_State = Lin_Send_State_NA;
+          lin_data_sending = false;
       }
-      Lin_data_send_buf[3 + lin_data_len] = Lin_Check_Sum(Lin_data_send_buf + 3, lin_data_len);
-      
-      Lin_SendData(Lin_data_send_buf + 3, lin_data_len + 1);
-
-      lin_data[ID].send_one_time_active --;
-      
-      Lin_Send_State = Lin_Send_State_Data_send;
-
+        
       break;
     case Lin_Send_State_Data_send:
       Lin_Send_State = Lin_Send_State_NA;
@@ -254,7 +272,7 @@ uint8_t Lin_Check_Sum(uint8_t* data, uint8_t n)
 
 void Lin_data_init(void)
 {
-    int i;
+    int i, j;
     
     memset(lin_data, 0, sizeof(lin_data));
     
@@ -266,16 +284,7 @@ void Lin_data_init(void)
         lin_data[i].receive  = 0;
         lin_data[i].send_one_time_enable = 1;
     }
-    lin_data[0x31].data[0] = 'H';
-    lin_data[0x31].data[1] = 'e';
-    lin_data[0x31].data[2] = 'l';
-    lin_data[0x31].data[3] = 'l';
-    lin_data[0x31].data[4] = 'o';
-    lin_data[0x31].data[5] = ' ';
-    lin_data[0x31].data[6] = 'X';
-    lin_data[0x31].data[7] = '\0';
     
-    /*
     // 本机接收
     for (i = 0x32; i <= 0x35; i++)
     {
@@ -310,7 +319,7 @@ void Lin_data_init(void)
         //    lin_data[i].data[j] = 0xff;
         }
     }
-    */
+    /* */
     
 //    // 0x3c是主机发布的ID  诊断帧 主机请求帧ID=0x3c 应答部分的发布节点为主机节点  
 //    for (i = 0x3c; i <= 0x3c; i++)

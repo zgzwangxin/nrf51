@@ -34,7 +34,7 @@ Stack_Size      EQU __STARTUP_CONFIG_STACK_SIZE
                 ELIF :DEF: __STACK_SIZE
 Stack_Size      EQU __STACK_SIZE
                 ELSE
-Stack_Size      EQU     1024
+Stack_Size      EQU     1536
                 ENDIF
 
                 AREA    STACK, NOINIT, READWRITE, ALIGN=3

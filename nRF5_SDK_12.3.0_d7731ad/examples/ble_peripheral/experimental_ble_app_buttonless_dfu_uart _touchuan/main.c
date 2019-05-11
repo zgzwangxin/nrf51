@@ -161,6 +161,8 @@ static ble_opt_t m_static_pin_option;
 
 #define DEAD_BEEF                       0xDEADBEEF                                  /**< Value used as error code on stack dump, can be used to identify stack location on stack unwind. */
 
+bool volatile is_connected = false;
+
 static uint16_t m_conn_handle = BLE_CONN_HANDLE_INVALID;                            /**< Handle of the current connection. */
 
 #define UART_TX_BUF_SIZE                256                                         /**< UART TX buffer size. */
@@ -531,7 +533,7 @@ static void nus_data_handler(ble_nus_t * p_nus, uint8_t * p_data, uint16_t lengt
       Lin_ID_data_press(ID, p_data + 2);
     }
   }
-  Lin_ID_data_press(ID, NULL);
+//  Lin_ID_data_press(ID, NULL);
   
 //    for (uint32_t i = 0; i < length; i++)
 //    {
@@ -926,6 +928,7 @@ static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
     switch (ble_adv_evt)
     {
         case BLE_ADV_EVT_FAST:
+          is_connected = false;
 //            is_adving = true;
         
 //            nrf_gpio_pin_write(22, LEDS_ACTIVE_STATE ? 1 : 0);
@@ -959,12 +962,14 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
             break; // BLE_GAP_EVT_DISCONNECTED
 
         case BLE_GAP_EVT_CONNECTED:
+          
+            is_connected = true;
 //            is_adving = false;
         
 //            nrf_gpio_pin_write(22, LEDS_ACTIVE_STATE ? 0 : 1);
         
-            nrf_gpio_pin_write(0, LEDS_ACTIVE_STATE ? 0 : 1);
-            nrf_gpio_pin_write(20, LEDS_ACTIVE_STATE ? 0 : 1);
+//            nrf_gpio_pin_write(0, LEDS_ACTIVE_STATE ? 0 : 1);
+//            nrf_gpio_pin_write(20, LEDS_ACTIVE_STATE ? 0 : 1);
             err_code = bsp_indication_set(BSP_INDICATE_CONNECTED);
             APP_ERROR_CHECK(err_code);
             m_conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
@@ -1411,7 +1416,8 @@ void uart_init(void)
 //        TX_PIN_NUMBER,//,6
 //        RTS_PIN_NUMBER,//,7
 //        CTS_PIN_NUMBER,//,12
-        5,6,7,12,
+//        5,6,7,12,
+        29,28,7,12,
         APP_UART_FLOW_CONTROL_DISABLED,
         false,
         UART_BAUDRATE_BAUDRATE_Baud19200
@@ -1518,7 +1524,8 @@ int main(void)
     timers_init();
   
     Lin_data_init();
-	
+	nrf_gpio_cfg_output(2);
+	nrf_gpio_pin_write(2, LEDS_ACTIVE_STATE ? 0 : 1);
     
 	nrf_gpio_cfg_output(19);
 	nrf_gpio_pin_write(19, LEDS_ACTIVE_STATE ? 0 : 1);
