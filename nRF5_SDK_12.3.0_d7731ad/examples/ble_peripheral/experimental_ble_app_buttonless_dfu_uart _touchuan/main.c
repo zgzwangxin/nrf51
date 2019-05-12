@@ -524,14 +524,22 @@ static void nus_data_handler(ble_nus_t * p_nus, uint8_t * p_data, uint16_t lengt
   
   if (p_data[0] == 0x55 && Lin_CheckPID(p_data[1]) == 0) {
     
-    ID = p_data[1] & 0x3f;
-    len = 8;
-    len = Lin_ID_to_len(ID);
-    
-    if (Lin_Check_Sum(p_data + 2, len) == p_data[len + 2]) {
+      ID = p_data[1] & 0x3f;
+      len = 8;
+      len = Lin_ID_to_len(ID);
       
-      Lin_ID_data_press(ID, p_data + 2);
-    }
+      if (Lin_Check_Sum(p_data + 2, len) == p_data[len + 2]) {
+          
+          if (lin_data[ID].receive == 0) {
+            
+              lin_data[ID].enable   = 1;
+              lin_data[ID].press    = 1;
+              lin_data[ID].send_one_time_enable = 1;
+              
+              Lin_ID_data_press(ID, p_data + 2);
+          }
+          
+      }
   }
 //  Lin_ID_data_press(ID, NULL);
   
