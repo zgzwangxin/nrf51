@@ -28,6 +28,7 @@ typedef struct {
     
     uint32_t    restart_wait_timeout_cnt;
     uint32_t    restart_wait_timeout_N;
+    uint8_t     is_temp;
     
 } battery_voltage_data_t;
 

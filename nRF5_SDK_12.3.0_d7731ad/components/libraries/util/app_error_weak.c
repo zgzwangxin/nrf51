@@ -51,7 +51,16 @@
  */
 __WEAK void app_error_fault_handler(uint32_t id, uint32_t pc, uint32_t info)
 {
+  error_info_t  * p_error_info;
+  
+    p_error_info = (error_info_t *)info;
     NRF_LOG_ERROR("Fatal\r\n");
+    NRF_LOG_ERROR(
+      "%s:%d err:%d\r\n", 
+      (uint32_t)(p_error_info->p_file_name),
+      p_error_info->line_num, 
+      p_error_info->err_code
+    );
     NRF_LOG_FINAL_FLUSH();
     // On assert, the system can only recover with a reset.
 #ifndef DEBUG

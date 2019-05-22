@@ -129,7 +129,7 @@ static void wait_for_event()
     APP_ERROR_CHECK(err_code);
     err_code = nrf_drv_wdt_channel_alloc(&m_channel_id);
     APP_ERROR_CHECK(err_code);
-    nrf_drv_wdt_enable();
+//    nrf_drv_wdt_enable();
     
     // Transport is waiting for event?
     while(true)
@@ -139,7 +139,7 @@ static void wait_for_event()
         
         
         nrf_drv_wdt_channel_feed(m_channel_id);
-        nrf_drv_wdt_feed();
+//        nrf_drv_wdt_feed();
     }
 }
 

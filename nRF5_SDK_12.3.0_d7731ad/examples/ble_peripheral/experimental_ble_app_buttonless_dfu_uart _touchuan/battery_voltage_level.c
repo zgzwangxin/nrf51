@@ -50,6 +50,7 @@ static void adc_event_handler(nrf_drv_adc_evt_t const * p_event)
     
     if (p_event->type == NRF_DRV_ADC_EVT_DONE)
     {
+        uint32_t err_code = NRF_SUCCESS;
         uint32_t i;
         uint32_t ad_sum = 0;
         uint16_t ad_value;
@@ -82,15 +83,21 @@ static void adc_event_handler(nrf_drv_adc_evt_t const * p_event)
         {
             buffer_sum += buffer[i];
         }
-        fad_value = 1.0 * buffer_sum / buffer_len_cnt;
+        fad_value = 1.0f * buffer_sum / buffer_len_cnt;
         
-        fvoltage = fad_value * 1.2 / ((0x01 << 10) - 1) * 3 * 2;
+        fvoltage = fad_value * 1.2f / ((0x01 << 10) - 1) * 3;
         
-        fvoltage  =  (fvoltage - 3.0) / (4.2 - 3.0) * 100;
+        fvoltage = fvoltage * 11 * 10;
         
         nrf_gpio_pin_write(ADC_ON_PIN_NUMBER, ADC_ON_ACTIVE_LEVEL ? 0 : 1);
         
-        set_ble_battery_level(fvoltage);
+        err_code = set_ble_battery_level((uint8_t)fvoltage);
+        if (err_code != NRF_ERROR_INVALID_STATE && 
+            err_code != BLE_ERROR_GATTS_SYS_ATTR_MISSING
+        ) {
+//          APP_ERROR_CHECK(err_code);
+        }
+        
     }
 }
 
@@ -121,7 +128,7 @@ int battery_voltage_init(battery_voltage_manage_t *p_battery_voltage_manage)
     p_battery_voltage_manage->state =   BATTERY_VOLTAGE_START;
     
     p_battery_voltage_manage->data.restart_wait_timeout_cnt =   0;
-    p_battery_voltage_manage->data.restart_wait_timeout_N   =   MS_TO_CNT(10 * 1000, TIMER1_CIRCLE_MS);   // 10 S
+    p_battery_voltage_manage->data.restart_wait_timeout_N   =   MS_TO_CNT(10 * 10, TIMER1_CIRCLE_MS);   // 100 ms
     
     // ¿ªÆôADC
     adc_config();
@@ -147,37 +154,40 @@ int battery_voltage_check_state(battery_voltage_manage_t *p_battery_voltage_mana
     {
         case BATTERY_VOLTAGE_START:
             
-            nrf_gpio_pin_write(ADC_ON_PIN_NUMBER, ADC_ON_ACTIVE_LEVEL ? 1 : 0);
-        
-//            // ¿ªÆôADC
-//            adc_config();
-        
-            APP_ERROR_CHECK(nrf_drv_adc_buffer_convert(adc_buffer,ADC_BUFFER_SIZE));
-        
-            p_battery_voltage_manage->data.restart_wait_timeout_cnt =   0;
-        
-            // ¿ªÊ¼²âÎÂ
-            NRF_TEMP->TASKS_START = 1; /** Start the temperature measurement. */
-        
-            nrf_delay_us(100);
-        
-            // µÈ´ý²âÎÂÍê³É
-            while (NRF_TEMP->EVENTS_DATARDY == 0)
-            {
-                // Do nothing.
-            }
-            NRF_TEMP->EVENTS_DATARDY = 0;
-
-            nrf_drv_adc_sample();
+            if (p_battery_voltage_manage->data.is_temp) {
+                  
+                // ¿ªÊ¼²âÎÂ
+                NRF_TEMP->TASKS_START = 1; /** Start the temperature measurement. */
             
-            // ²âÎÂ¶È
-            temp = (nrf_temp_read() / 4.0);
+                // µÈ´ý²âÎÂÍê³É
+                while (NRF_TEMP->EVENTS_DATARDY == 0)
+                {
+                    // Do nothing.
+                }
+                NRF_TEMP->EVENTS_DATARDY = 0;
 
-            // Í£Ö¹²âÎÂ
-            NRF_TEMP->TASKS_STOP = 1; /** Stop the temperature measurement. */
-            
-            temperature_measurement_send_temp(temp);
+                // ²âÎÂ¶È
+                temp = (nrf_temp_read() / 4.0f);
+
+                // Í£Ö¹²âÎÂ
+                NRF_TEMP->TASKS_STOP = 1; /** Stop the temperature measurement. */
                 
+                temperature_measurement_send_temp(temp);
+                    
+              
+            } else {
+//                // ¿ªÆôADC
+//                adc_config();
+          
+                nrf_gpio_pin_write(ADC_ON_PIN_NUMBER, ADC_ON_ACTIVE_LEVEL ? 1 : 0);
+                nrf_delay_us(1000);
+                APP_ERROR_CHECK(nrf_drv_adc_buffer_convert(adc_buffer,ADC_BUFFER_SIZE));
+              
+                nrf_drv_adc_sample();
+            }
+            p_battery_voltage_manage->data.is_temp ^= 0x01;
+            
+            p_battery_voltage_manage->data.restart_wait_timeout_cnt =   0;
             p_battery_voltage_manage->state = BATTERY_VOLTAGE_AD_RESTART_WAIT;
             
             break;

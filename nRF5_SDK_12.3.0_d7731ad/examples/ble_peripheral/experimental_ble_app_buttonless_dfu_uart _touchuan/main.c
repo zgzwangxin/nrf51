@@ -161,6 +161,10 @@ static ble_opt_t m_static_pin_option;
 
 #define DEAD_BEEF                       0xDEADBEEF                                  /**< Value used as error code on stack dump, can be used to identify stack location on stack unwind. */
 
+uint32_t  reset_reason;
+// ,at(0x20003FFC)
+ __attribute__(( zero_init )) bool is_open ;
+
 bool volatile is_connected = false;
 
 static uint16_t m_conn_handle = BLE_CONN_HANDLE_INVALID;                            /**< Handle of the current connection. */
@@ -226,7 +230,7 @@ static void advertising_start(void);
 void send_string(uint8_t * p_string, uint16_t length);
 void send_string_tx(uint8_t * p_string, uint16_t length);
 #define STRING_LEN  18
-extern char string[STRING_LEN];
+ char string[STRING_LEN];
 
 
 /**@brief Callback function for asserts in the SoftDevice.
@@ -402,8 +406,10 @@ static void soft_timer1_timer_handler(void * p_context)
 //	uint32_t err_code = NRF_SUCCESS;
 
     UNUSED_PARAMETER(p_context);
-    
-//    battery_voltage_check_state(&g_battery_voltage_manage);
+  
+//    nrf_drv_wdt_feed();
+  
+    battery_voltage_check_state(&g_battery_voltage_manage);
   
     Lin_master_go();
 }
@@ -525,7 +531,6 @@ static void nus_data_handler(ble_nus_t * p_nus, uint8_t * p_data, uint16_t lengt
   if (p_data[0] == 0x55 && Lin_CheckPID(p_data[1]) == 0) {
     
       ID = p_data[1] & 0x3f;
-      len = 8;
       len = Lin_ID_to_len(ID);
       
       if (Lin_Check_Sum(p_data + 2, len) == p_data[len + 2]) {
@@ -540,6 +545,69 @@ static void nus_data_handler(ble_nus_t * p_nus, uint8_t * p_data, uint16_t lengt
           }
           
       }
+  } else if (p_data[0] == 0) {
+    is_open = false;
+//    nrf_gpio_cfg_output(2);
+    nrf_gpio_pin_write(2, 0);
+    nrf_gpio_pin_write(19, 0);
+    NRF_LOG_INFO("set power off\r\n");
+  } else if (p_data[0] == 1) {
+    is_open = true;
+//    nrf_gpio_cfg_output(2);
+    nrf_gpio_pin_write(2, 1);
+    nrf_gpio_pin_write(19, 1);
+    NRF_LOG_INFO("set power on\r\n");
+  } else if (!strncmp((const char *)p_data, "reset_reason", strlen("reset_reason"))) {
+    snprintf(string, STRING_LEN - 1, "R:0x%08x", reset_reason);
+    string[0] = 'R';
+    string[1] = ':';
+    if (POWER_RESETREAS_RESETPIN_Msk & reset_reason) {
+      string[2] = 'A';
+    } else {
+      string[2] = ' ';
+    }
+    if (POWER_RESETREAS_DOG_Msk & reset_reason) {
+      string[3] = 'B';
+    } else {
+      string[3] = ' ';
+    }
+    if (POWER_RESETREAS_SREQ_Msk & reset_reason) {
+      string[4] = 'C';
+    } else {
+      string[4] = ' ';
+    }
+    if (POWER_RESETREAS_LOCKUP_Msk & reset_reason) {
+      string[5] = 'D';
+    } else {
+      string[5] = ' ';
+    }
+    if (POWER_RESETREAS_OFF_Msk & reset_reason) {
+      string[6] = 'E';
+    } else {
+      string[6] = ' ';
+    }
+    if (POWER_RESETREAS_LPCOMP_Msk & reset_reason) {
+      string[7] = 'F';
+    } else {
+      string[7] = ' ';
+    }
+    if (POWER_RESETREAS_DIF_Msk & reset_reason) {
+      string[8] = 'G';
+    } else {
+      string[8] = ' ';
+    }
+    string[9] = '\0';
+    
+    send_string((uint8_t*)string, strlen(string));
+  }
+  else if (strncmp("test wdt", (const char *)p_data, strlen("test wdt")) == 0)
+  {
+      nrf_delay_ms(4000);
+  }
+  else if (strncmp("test err", (const char *)p_data, strlen("test err")) == 0)
+  {
+      NRF_LOG_INFO("test err\r\n");
+      APP_ERROR_CHECK(1);
   }
 //  Lin_ID_data_press(ID, NULL);
   
@@ -647,7 +715,7 @@ void temperature_measurement_send_temp(float temp)
 {
     ble_dis_meas_t simulated_meas;
     uint32_t       err_code;
-    float          temp_bak = -10000;
+    static float   temp_bak = -10000;
 
 //    dis_sim_measurement(&simulated_meas);
     if (temp != temp_bak)
@@ -1425,6 +1493,7 @@ void uart_init(void)
 //        RTS_PIN_NUMBER,//,7
 //        CTS_PIN_NUMBER,//,12
 //        5,6,7,12,
+//      NRF_UART_PSEL_DISCONNECTED,28,7,12,
         29,28,7,12,
         APP_UART_FLOW_CONTROL_DISABLED,
         false,
@@ -1502,9 +1571,11 @@ void send_string(uint8_t * p_string, uint16_t length)
 
 int set_ble_battery_level(uint8_t battery_level)
 {
-    ble_bas_battery_level_update(&m_bas, battery_level);
+    uint32_t err_code = NRF_SUCCESS;
+  
+    err_code = ble_bas_battery_level_update(&m_bas, battery_level);
     
-    return 0;
+    return err_code;
 }
     
 /**
@@ -1517,6 +1588,12 @@ void wdt_event_handler(void)
     //NOTE: The max amount of time we can spend in WDT interrupt is two cycles of 32768[Hz] clock - after that, reset occurs
 }
 
+uint32_t nrf_log_timestamp_func(void)
+{
+  static uint32_t t = 0;
+  t++;
+  return t;
+}
 
 /**@brief Function for application main entry.
  */
@@ -1528,15 +1605,25 @@ int main(void)
     // Initialize.
     err_code = NRF_LOG_INIT(NULL);
     APP_ERROR_CHECK(err_code);
+  
     uart_init();
     timers_init();
   
     Lin_data_init();
+
 	nrf_gpio_cfg_output(2);
-	nrf_gpio_pin_write(2, LEDS_ACTIVE_STATE ? 0 : 1);
+//	nrf_gpio_pin_write(2, LEDS_ACTIVE_STATE ? 0 : 1);
+  nrf_gpio_cfg_output(19);
+//	nrf_gpio_pin_write(19, LEDS_ACTIVE_STATE ? 0 : 1);
+  if (is_open) {
+    nrf_gpio_pin_write(2, 1);
+    nrf_gpio_pin_write(19, 1);
+  } else {
+    nrf_gpio_pin_write(2, 0);
+    nrf_gpio_pin_write(19, 0);
+  }
     
-	nrf_gpio_cfg_output(19);
-	nrf_gpio_pin_write(19, LEDS_ACTIVE_STATE ? 0 : 1);
+	
 	nrf_gpio_cfg_output(20);
 	nrf_gpio_pin_write(20, LEDS_ACTIVE_STATE ? 0 : 1);
   nrf_gpio_cfg_output(21);
@@ -1557,6 +1644,17 @@ int main(void)
     {
         NRF_LOG_DEBUG("Bonds erased!\r\n");
     }
+    
+    sd_power_reset_reason_get(&reset_reason);
+    sd_power_reset_reason_clr(
+      POWER_RESETREAS_RESETPIN_Msk  |
+      POWER_RESETREAS_DOG_Msk       |
+      POWER_RESETREAS_SREQ_Msk      |
+      POWER_RESETREAS_LOCKUP_Msk    |
+      POWER_RESETREAS_OFF_Msk       |
+      POWER_RESETREAS_LPCOMP_Msk    |
+      POWER_RESETREAS_DIF_Msk  
+    );
     
 //    err_code =  sd_ble_gap_tx_power_set(4);
 //    APP_ERROR_CHECK(err_code);
@@ -1598,7 +1696,6 @@ int main(void)
         if (NRF_LOG_PROCESS() == false)
         {
             nrf_drv_wdt_channel_feed(m_channel_id);
-            nrf_drv_wdt_feed();
             
             power_manage();
         }
