@@ -230,6 +230,18 @@ static __INLINE void app_error_print(uint32_t id, uint32_t pc, uint32_t info)
         }                                                     \
     } while (0)
 
+void app_error_trace(ret_code_t error_code, uint32_t line_num, const uint8_t * p_file_name);
+    
+#define APP_ERROR_TRACE(ERR_CODE)                           \
+    do                                                      \
+    {                                                       \
+        const uint32_t LOCAL_ERR_CODE = (ERR_CODE);         \
+        if (LOCAL_ERR_CODE != NRF_SUCCESS)                  \
+        {                                                   \
+            app_error_trace(LOCAL_ERR_CODE, __LINE__, __FILE__);  \
+                                                                  \
+        }                                                         \
+    } while (0)
 
 #ifdef __cplusplus
 }

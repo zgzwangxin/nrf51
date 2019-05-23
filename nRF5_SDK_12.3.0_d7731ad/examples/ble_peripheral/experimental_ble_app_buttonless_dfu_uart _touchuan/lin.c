@@ -7,6 +7,8 @@
 #include <string.h>
 #include <math.h>
 #include "app_uart.h"
+#include "app_error.h"
+#include "nrf_log.h"
 #include "nrf_uart.h"
 #include "nrf_gpio.h"
 
@@ -119,13 +121,14 @@ uint8_t Lin_ID_to_len(uint8_t ID)
   return len;
 }
 
-void send_string(uint8_t * p_string, uint16_t length);
+int send_string(uint8_t * p_string, uint16_t length);
 
 
 void Lin_data_ready(uint8_t byte)
 {
     static uint8_t lin_rec_id, lin_data_len;
     uint8_t i = 0;
+    uint32_t err_code = NRF_SUCCESS;
 
     switch (Lin_Recv_State)
     {
@@ -185,7 +188,14 @@ void Lin_data_ready(uint8_t byte)
             }
             lin_data[lin_rec_id].update = 1;
             
-            send_string(Lin_data_recv_buf + 1, 3 + lin_data_len);
+            err_code = send_string(Lin_data_recv_buf + 1, 3 + lin_data_len);
+            if (err_code != NRF_SUCCESS) {
+                if (err_code == NRF_ERROR_INVALID_STATE) {
+                    NRF_LOG_WARNING("lin not send\r\n");
+                } else {
+                    NRF_LOG_ERROR("lin send to miniapp fail\r\n");
+                }
+            }
             
         } else {
             Lin_Recv_State = Lin_Recv_State_Break;

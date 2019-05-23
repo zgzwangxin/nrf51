@@ -54,8 +54,8 @@
 #include "ble_l2cap.h"
 
 
-void send_string(uint8_t * p_string, uint16_t length);
-void send_string_tx(uint8_t * p_string, uint16_t length);
+int send_string(uint8_t * p_string, uint16_t length);
+int send_string_tx(uint8_t * p_string, uint16_t length);
 #define STRING_LEN  18
 extern char string[STRING_LEN];
 
@@ -94,6 +94,7 @@ extern char string[STRING_LEN];
 static void on_connect(ble_dis_t * p_dis, ble_evt_t * p_ble_evt)
 {
     p_dis->conn_handle = p_ble_evt->evt.gatts_evt.conn_handle;
+    p_dis->is_meas_notification_enabled = false;
 }
 
 
@@ -106,6 +107,7 @@ static void on_disconnect(ble_dis_t * p_dis, ble_evt_t * p_ble_evt)
 {
     UNUSED_PARAMETER(p_ble_evt);
     p_dis->conn_handle = BLE_CONN_HANDLE_INVALID;
+    p_dis->is_meas_notification_enabled = false;
 }
 
 
@@ -115,32 +117,28 @@ static void on_disconnect(ble_dis_t * p_dis, ble_evt_t * p_ble_evt)
  * @param[in]   p_evt_write   Write event received from the BLE stack.
  */
 static void on_cccd_write(ble_dis_t * p_dis, ble_gatts_evt_write_t * p_evt_write)
-{
-    
-    
-//    snprintf(string, STRING_LEN, "len : %d", p_evt_write->len);
-//    send_string((uint8_t*)string, strlen(string));
-                
+{        
     if (p_evt_write->len == 2)
     {
         // CCCD written, update indication state
+
+        ble_dis_evt_t evt;
+
+//        if (ble_srv_is_indication_enabled(p_evt_write->data))
+        if (ble_srv_is_notification_enabled(p_evt_write->data))
+        {
+            evt.evt_type = BLE_DIS_EVT_INDICATION_ENABLED;
+            p_dis->is_meas_notification_enabled = true;
+            
+        }
+        else
+        {
+            evt.evt_type = BLE_DIS_EVT_INDICATION_DISABLED;
+            p_dis->is_meas_notification_enabled = false;
+        }
+
         if (p_dis->evt_handler != NULL)
         {
-            ble_dis_evt_t evt;
-
-            if (ble_srv_is_indication_enabled(p_evt_write->data))
-            {
-                evt.evt_type = BLE_DIS_EVT_INDICATION_ENABLED;
-            }
-            else
-            {
-                evt.evt_type = BLE_DIS_EVT_INDICATION_DISABLED;
-            }
-            
-
-//            snprintf(string, STRING_LEN, "dis evt_handler");
-//            send_string((uint8_t*)string, strlen(string));
-                
             p_dis->evt_handler(p_dis, &evt);
         }
     }
@@ -197,10 +195,6 @@ void ble_dis_on_ble_evt(ble_dis_t * p_dis, ble_evt_t * p_ble_evt)
             break;
 
         case BLE_GATTS_EVT_WRITE:
-            
-//            snprintf(string, STRING_LEN, "EVT_WRITE");
-//            send_string((uint8_t*)string, strlen(string));
-            
             on_write(p_dis, p_ble_evt);
             break;
 
@@ -398,7 +392,8 @@ static uint32_t dis_measurement_char_add(ble_dis_t * p_dis, const ble_dis_init_t
 
     
     char_md.char_props.read     = 1;
-    char_md.char_props.indicate = 1;
+//    char_md.char_props.indicate = 1;
+    char_md.char_props.notify  = 1;
     char_md.p_char_user_desc    = NULL;
     char_md.p_char_pf           = NULL;
     char_md.p_user_desc_md      = NULL;
@@ -592,26 +587,49 @@ uint32_t ble_dis_init(ble_dis_t * p_dis, const ble_dis_init_t * p_dis_init)
 
 uint32_t ble_dis_measurement_send(ble_dis_t * p_dis, ble_dis_meas_t * p_dis_meas)
 {
-    uint32_t err_code;
+    uint32_t err_code = NRF_SUCCESS;
+    ble_gatts_value_t gatts_value;
+  
+    uint8_t                encoded_dis_meas[MAX_DIM_LEN];
+    uint16_t               len;
+  
+    len     = dis_measurement_encode(p_dis, p_dis_meas, encoded_dis_meas);
+
+      // Initialize value struct.
+    memset(&gatts_value, 0, sizeof(gatts_value));
+
+    gatts_value.len     = len;
+    gatts_value.offset  = 0;
+    gatts_value.p_value = encoded_dis_meas;
+
+    // Update database.
+    err_code = sd_ble_gatts_value_set(p_dis->conn_handle,
+                                      p_dis->meas_handles.value_handle,
+                                      &gatts_value);
+    if (err_code != NRF_SUCCESS)
+    {
+        return err_code;
+    }
+  
 
     // Send value if connected
-    if (p_dis->conn_handle != BLE_CONN_HANDLE_INVALID)
+    if (p_dis->conn_handle != BLE_CONN_HANDLE_INVALID && p_dis->is_meas_notification_enabled)
     {
-        uint8_t                encoded_dis_meas[MAX_DIM_LEN];
-        uint16_t               len;
+
         uint16_t               hvx_len;
         ble_gatts_hvx_params_t hvx_params;
 
-        len     = dis_measurement_encode(p_dis, p_dis_meas, encoded_dis_meas);
+
         hvx_len = len;
 
         memset(&hvx_params, 0, sizeof(hvx_params));
 
         hvx_params.handle = p_dis->meas_handles.value_handle;
-        hvx_params.type   = BLE_GATT_HVX_INDICATION;
+//        hvx_params.type   = BLE_GATT_HVX_INDICATION;
+        hvx_params.type   = BLE_GATT_HVX_NOTIFICATION;
         hvx_params.offset = 0;
         hvx_params.p_len  = &hvx_len;
-        hvx_params.p_data = encoded_dis_meas;
+        hvx_params.p_data = gatts_value.p_value;
 
         err_code = sd_ble_gatts_hvx(p_dis->conn_handle, &hvx_params);
         if ((err_code == NRF_SUCCESS) && (hvx_len != len))

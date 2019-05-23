@@ -58,6 +58,7 @@
 static void on_connect(ble_nus_t * p_nus, ble_evt_t * p_ble_evt)
 {
     p_nus->conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
+    p_nus->is_notification_enabled = false;
 }
 
 
@@ -70,6 +71,7 @@ static void on_disconnect(ble_nus_t * p_nus, ble_evt_t * p_ble_evt)
 {
     UNUSED_PARAMETER(p_ble_evt);
     p_nus->conn_handle = BLE_CONN_HANDLE_INVALID;
+    p_nus->is_notification_enabled = false;
 }
 
 

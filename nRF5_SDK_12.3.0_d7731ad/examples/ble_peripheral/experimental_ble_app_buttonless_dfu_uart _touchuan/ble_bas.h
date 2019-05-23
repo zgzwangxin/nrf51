@@ -117,6 +117,7 @@ struct ble_bas_s
     uint8_t                       battery_level_last;             /**< Last Battery Level measurement passed to the Battery Service. */
     uint16_t                      conn_handle;                    /**< Handle of the current connection (as provided by the BLE stack, is BLE_CONN_HANDLE_INVALID if not in a connection). */
     bool                          is_notification_supported;      /**< TRUE if notification of Battery Level is supported. */
+    bool                          is_notification_enable; 
 };
 
 /**@brief Function for initializing the Battery Service.

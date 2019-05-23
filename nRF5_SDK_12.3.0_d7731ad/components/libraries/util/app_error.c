@@ -143,4 +143,33 @@ void app_error_save_and_stop(uint32_t id, uint32_t pc, uint32_t info)
     __enable_irq();
 }
 
+void app_error_trace(ret_code_t error_code, uint32_t line_num, const uint8_t * p_file_name)
+{
+#if defined(ERR_NAMES_SIZE)
+    if (error_code < ERR_NAMES_SIZE) {
+        NRF_LOG_ERROR(
+            "%s:%d \r\n \t error code:%s\r\n",
+            (uint32_t)p_file_name,
+            line_num,
+            (uint32_t)ERR_TO_STR(error_code)
+        );
+    } else {
+        NRF_LOG_ERROR(
+            "%s:%d \r\n \t error code:%d\r\n",
+            (uint32_t)p_file_name,
+            line_num,
+            error_code
+        );
+    }
+#else
+    NRF_LOG_ERROR(
+        "%s:%d \r\n \t error code:%d\r\n",
+        (uint32_t)p_file_name,
+        line_num,
+        error_code
+    );
+#endif
+    
+}
+
 /*lint -restore */

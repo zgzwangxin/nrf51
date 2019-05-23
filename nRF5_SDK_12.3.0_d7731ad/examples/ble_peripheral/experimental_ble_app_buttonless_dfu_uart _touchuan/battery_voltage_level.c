@@ -35,7 +35,7 @@ static nrf_drv_adc_channel_t m_channel_config =
 
 int set_ble_battery_level(uint8_t battery_level);
 
-void temperature_measurement_send_temp(float temp);
+int temperature_measurement_send_temp(float temp);
 
 /**
  * @brief ADC interrupt handler.
@@ -50,7 +50,7 @@ static void adc_event_handler(nrf_drv_adc_evt_t const * p_event)
     
     if (p_event->type == NRF_DRV_ADC_EVT_DONE)
     {
-        uint32_t err_code = NRF_SUCCESS;
+        uint32_t error_code = NRF_SUCCESS;
         uint32_t i;
         uint32_t ad_sum = 0;
         uint16_t ad_value;
@@ -91,13 +91,11 @@ static void adc_event_handler(nrf_drv_adc_evt_t const * p_event)
         
         nrf_gpio_pin_write(ADC_ON_PIN_NUMBER, ADC_ON_ACTIVE_LEVEL ? 0 : 1);
         
-        err_code = set_ble_battery_level((uint8_t)fvoltage);
-        if (err_code != NRF_ERROR_INVALID_STATE && 
-            err_code != BLE_ERROR_GATTS_SYS_ATTR_MISSING
-        ) {
-//          APP_ERROR_CHECK(err_code);
+        error_code = set_ble_battery_level((uint8_t)fvoltage);
+        if (error_code != NRF_ERROR_INVALID_STATE) {
+            APP_ERROR_TRACE(error_code);
         }
-        
+        UNUSED_VARIABLE(error_code);
     }
 }
 
@@ -149,6 +147,7 @@ int battery_voltage_check_state(battery_voltage_manage_t *p_battery_voltage_mana
         return 1;
     }
     float temp = 0;
+    uint32_t  error_code = NRF_SUCCESS;
         
     switch (p_battery_voltage_manage->state)
     {
@@ -158,7 +157,7 @@ int battery_voltage_check_state(battery_voltage_manage_t *p_battery_voltage_mana
                   
                 // ¿ªÊ¼²âÎÂ
                 NRF_TEMP->TASKS_START = 1; /** Start the temperature measurement. */
-            
+                nrf_delay_us(1000);
                 // µÈ´ý²âÎÂÍê³É
                 while (NRF_TEMP->EVENTS_DATARDY == 0)
                 {
@@ -172,8 +171,15 @@ int battery_voltage_check_state(battery_voltage_manage_t *p_battery_voltage_mana
                 // Í£Ö¹²âÎÂ
                 NRF_TEMP->TASKS_STOP = 1; /** Stop the temperature measurement. */
                 
-                temperature_measurement_send_temp(temp);
-                    
+                error_code = temperature_measurement_send_temp(temp);
+                if (error_code != NRF_ERROR_INVALID_STATE) {
+                    APP_ERROR_TRACE(error_code);
+                    if (error_code != NRF_SUCCESS && 
+                        error_code != NRF_ERROR_INVALID_STATE
+                    ) {
+                        NRF_LOG_ERROR("temp send fail\r\n");
+                    }
+                }
               
             } else {
 //                // ¿ªÆôADC

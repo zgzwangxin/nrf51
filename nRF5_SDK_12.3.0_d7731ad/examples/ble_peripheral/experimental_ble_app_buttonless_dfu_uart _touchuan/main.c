@@ -227,11 +227,13 @@ static ble_uuid_t m_adv_uuids[] = {{BLE_UUID_DEVICE_INFORMATION_SERVICE, BLE_UUI
 
 static void advertising_start(void);
 
-void send_string(uint8_t * p_string, uint16_t length);
-void send_string_tx(uint8_t * p_string, uint16_t length);
+int send_string(uint8_t * p_string, uint16_t length);
+int send_string_tx(uint8_t * p_string, uint16_t length);
 #define STRING_LEN  18
  char string[STRING_LEN];
 
+int temperature_measurement_send_temp(float temp);
+int set_ble_battery_level(uint8_t battery_level);
 
 /**@brief Callback function for asserts in the SoftDevice.
  *
@@ -409,9 +411,9 @@ static void soft_timer1_timer_handler(void * p_context)
   
 //    nrf_drv_wdt_feed();
   
-    battery_voltage_check_state(&g_battery_voltage_manage);
-  
     Lin_master_go();
+  
+    battery_voltage_check_state(&g_battery_voltage_manage);
 }
 
 
@@ -527,6 +529,7 @@ static void gap_params_init(void)
 static void nus_data_handler(ble_nus_t * p_nus, uint8_t * p_data, uint16_t length)
 {
   uint8_t  ID = 0x31, len;
+  uint32_t error_code = NRF_SUCCESS;
   
   if (p_data[0] == 0x55 && Lin_CheckPID(p_data[1]) == 0) {
     
@@ -558,47 +561,56 @@ static void nus_data_handler(ble_nus_t * p_nus, uint8_t * p_data, uint16_t lengt
     nrf_gpio_pin_write(19, 1);
     NRF_LOG_INFO("set power on\r\n");
   } else if (!strncmp((const char *)p_data, "reset_reason", strlen("reset_reason"))) {
-    snprintf(string, STRING_LEN - 1, "R:0x%08x", reset_reason);
-    string[0] = 'R';
-    string[1] = ':';
-    if (POWER_RESETREAS_RESETPIN_Msk & reset_reason) {
-      string[2] = 'A';
-    } else {
-      string[2] = ' ';
-    }
-    if (POWER_RESETREAS_DOG_Msk & reset_reason) {
-      string[3] = 'B';
-    } else {
-      string[3] = ' ';
-    }
-    if (POWER_RESETREAS_SREQ_Msk & reset_reason) {
-      string[4] = 'C';
-    } else {
-      string[4] = ' ';
-    }
-    if (POWER_RESETREAS_LOCKUP_Msk & reset_reason) {
-      string[5] = 'D';
-    } else {
-      string[5] = ' ';
-    }
-    if (POWER_RESETREAS_OFF_Msk & reset_reason) {
-      string[6] = 'E';
-    } else {
-      string[6] = ' ';
-    }
-    if (POWER_RESETREAS_LPCOMP_Msk & reset_reason) {
-      string[7] = 'F';
-    } else {
-      string[7] = ' ';
-    }
-    if (POWER_RESETREAS_DIF_Msk & reset_reason) {
-      string[8] = 'G';
-    } else {
-      string[8] = ' ';
-    }
-    string[9] = '\0';
+      snprintf(string, STRING_LEN - 1, "R:0x%08x", reset_reason);
+      string[0] = 'R';
+      string[1] = ':';
+      if (POWER_RESETREAS_RESETPIN_Msk & reset_reason) {
+          string[2] = 'A';
+      } else {
+          string[2] = ' ';
+      }
+      if (POWER_RESETREAS_DOG_Msk & reset_reason) {
+          string[3] = 'B';
+      } else {
+          string[3] = ' ';
+      }
+      if (POWER_RESETREAS_SREQ_Msk & reset_reason) {
+          string[4] = 'C';
+      } else {
+          string[4] = ' ';
+      }
+      if (POWER_RESETREAS_LOCKUP_Msk & reset_reason) {
+          string[5] = 'D';
+      } else {
+          string[5] = ' ';
+      }
+      if (POWER_RESETREAS_OFF_Msk & reset_reason) {
+          string[6] = 'E';
+      } else {
+          string[6] = ' ';
+      }
+      if (POWER_RESETREAS_LPCOMP_Msk & reset_reason) {
+          string[7] = 'F';
+      } else {
+          string[7] = ' ';
+      }
+      if (POWER_RESETREAS_DIF_Msk & reset_reason) {
+          string[8] = 'G';
+      } else {
+          string[8] = ' ';
+      }
+      string[9] = '\0';
     
-    send_string((uint8_t*)string, strlen(string));
+      error_code = send_string((uint8_t*)string, strlen(string));
+      if (error_code != NRF_SUCCESS) {
+        
+          if (error_code == NRF_ERROR_INVALID_STATE) {
+              NRF_LOG_WARNING("reset_reason response not sned\r\n");
+          } else {
+              APP_ERROR_TRACE(error_code);
+              NRF_LOG_ERROR("reset_reason response fail\r\n");
+          }
+      }
   }
   else if (strncmp("test wdt", (const char *)p_data, strlen("test wdt")) == 0)
   {
@@ -608,6 +620,17 @@ static void nus_data_handler(ble_nus_t * p_nus, uint8_t * p_data, uint16_t lengt
   {
       NRF_LOG_INFO("test err\r\n");
       APP_ERROR_CHECK(1);
+  }
+  else if (strncmp("test ds", (const char *)p_data, strlen("test ds")) == 0) {
+      NRF_LOG_INFO("test ds\r\n");
+      error_code = temperature_measurement_send_temp(3);
+      if (error_code != NRF_ERROR_INVALID_STATE) {
+          APP_ERROR_TRACE(error_code);
+      }
+      error_code = set_ble_battery_level(5);
+      if (error_code != NRF_ERROR_INVALID_STATE) {
+          APP_ERROR_TRACE(error_code);
+      }
   }
 //  Lin_ID_data_press(ID, NULL);
   
@@ -711,10 +734,10 @@ static void dis_temp_measurement(ble_dis_meas_t * p_meas, float temp)
 //}
 
 
-void temperature_measurement_send_temp(float temp)
+int temperature_measurement_send_temp(float temp)
 {
     ble_dis_meas_t simulated_meas;
-    uint32_t       err_code;
+    uint32_t       error_code = NRF_SUCCESS;
     static float   temp_bak = -10000;
 
 //    dis_sim_measurement(&simulated_meas);
@@ -722,10 +745,17 @@ void temperature_measurement_send_temp(float temp)
     {
         dis_temp_measurement(&simulated_meas, temp);
 
-        err_code = ble_dis_measurement_send(&m_dis, &simulated_meas);
-        UNUSED_VARIABLE(err_code);
-        temp_bak = temp;
+        error_code = ble_dis_measurement_send(&m_dis, &simulated_meas);
+//        if (error_code != NRF_ERROR_INVALID_STATE) {
+//            APP_ERROR_TRACE(error_code);
+//        }
+        UNUSED_VARIABLE(error_code);
+        if (error_code == NRF_SUCCESS) {
+            temp_bak = temp;
+        }
     }
+    
+    return error_code;
 }
 
 /**@brief Function for handling the Health Thermometer Service events.
@@ -1538,22 +1568,21 @@ static void advertising_start(void)
 //	// 
 //}
 
-void send_string(uint8_t * p_string, uint16_t length)
+int send_string(uint8_t * p_string, uint16_t length)
 {
     uint32_t err_code;
-    
-    if (length > 18)
-    {
-        length = 18;
-    }
-    
+
     err_code = ble_nus_string_send(&m_nus, p_string, length);
-    if (err_code != NRF_ERROR_INVALID_STATE)
-    {
-        APP_ERROR_CHECK(err_code);
-    }
+//    if (err_code != NRF_ERROR_INVALID_STATE)
+//    {
+//        APP_ERROR_CHECK(err_code);
+//    }
+//    if (err_code != NRF_ERROR_INVALID_STATE) {
+//        APP_ERROR_TRACE(err_code);
+//    }
+    return err_code;
 }
-//void send_string_tx(uint8_t * p_string, uint16_t length)
+//int send_string_tx(uint8_t * p_string, uint16_t length)
 //{
 //    uint32_t err_code;
 //    
@@ -1574,7 +1603,9 @@ int set_ble_battery_level(uint8_t battery_level)
     uint32_t err_code = NRF_SUCCESS;
   
     err_code = ble_bas_battery_level_update(&m_bas, battery_level);
-    
+//    if (err_code != NRF_ERROR_INVALID_STATE) {
+//        APP_ERROR_TRACE(err_code);
+//    }
     return err_code;
 }
     
@@ -1603,8 +1634,10 @@ int main(void)
     bool     erase_bonds;
 
     // Initialize.
-    err_code = NRF_LOG_INIT(NULL);
+    err_code = NRF_LOG_INIT(nrf_log_timestamp_func);
     APP_ERROR_CHECK(err_code);
+  
+    NRF_LOG_INFO("app start!\r\n");
   
     uart_init();
     timers_init();
@@ -1672,8 +1705,10 @@ int main(void)
     APP_ERROR_CHECK(err_code);
     NRF_LOG_DEBUG("advertising is started\r\n");
     
-    ble_bas_battery_level_update(&m_bas, 1);
-    
+    err_code = set_ble_battery_level(1);
+    if (err_code != NRF_ERROR_INVALID_STATE) {
+        APP_ERROR_TRACE(err_code);
+    }
     
     static nrf_drv_wdt_channel_id m_channel_id;
     

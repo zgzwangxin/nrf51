@@ -60,6 +60,7 @@
 static void on_connect(ble_bas_t * p_bas, ble_evt_t * p_ble_evt)
 {
     p_bas->conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
+    p_bas->is_notification_enable = false;
 }
 
 
@@ -72,6 +73,7 @@ static void on_disconnect(ble_bas_t * p_bas, ble_evt_t * p_ble_evt)
 {
     UNUSED_PARAMETER(p_ble_evt);
     p_bas->conn_handle = BLE_CONN_HANDLE_INVALID;
+    p_bas->is_notification_enable = false;
 }
 
 
@@ -82,10 +84,8 @@ static void on_disconnect(ble_bas_t * p_bas, ble_evt_t * p_ble_evt)
  */
 static void on_write(ble_bas_t * p_bas, ble_evt_t * p_ble_evt)
 {
-    if (p_bas->is_notification_supported)
-    {
+    if (p_bas->is_notification_supported) {
         ble_gatts_evt_write_t * p_evt_write = &p_ble_evt->evt.gatts_evt.params.write;
-
         if (
             (p_evt_write->handle == p_bas->battery_level_handles.cccd_handle)
             &&
@@ -93,19 +93,21 @@ static void on_write(ble_bas_t * p_bas, ble_evt_t * p_ble_evt)
            )
         {
             // CCCD written, call application event handler
+
+            ble_bas_evt_t evt;
+
+            if (ble_srv_is_notification_enabled(p_evt_write->data))
+            {
+                evt.evt_type = BLE_BAS_EVT_NOTIFICATION_ENABLED;
+                p_bas->is_notification_enable = true;
+            }
+            else
+            {
+                evt.evt_type = BLE_BAS_EVT_NOTIFICATION_DISABLED;
+                p_bas->is_notification_enable = false;
+            }
             if (p_bas->evt_handler != NULL)
             {
-                ble_bas_evt_t evt;
-
-                if (ble_srv_is_notification_enabled(p_evt_write->data))
-                {
-                    evt.evt_type = BLE_BAS_EVT_NOTIFICATION_ENABLED;
-                }
-                else
-                {
-                    evt.evt_type = BLE_BAS_EVT_NOTIFICATION_DISABLED;
-                }
-
                 p_bas->evt_handler(p_bas, &evt);
             }
         }
@@ -269,6 +271,7 @@ uint32_t ble_bas_init(ble_bas_t * p_bas, const ble_bas_init_t * p_bas_init)
     p_bas->evt_handler               = p_bas_init->evt_handler;
     p_bas->conn_handle               = BLE_CONN_HANDLE_INVALID;
     p_bas->is_notification_supported = p_bas_init->support_notification;
+    p_bas->is_notification_enable    = false;
     p_bas->battery_level_last        = INVALID_BATTERY_LEVEL;
 
     // Add service
@@ -317,25 +320,26 @@ uint32_t ble_bas_battery_level_update(ble_bas_t * p_bas, uint8_t battery_level)
         {
             return err_code;
         }
+        if (p_bas->is_notification_supported) {
+            // Send value if connected and notifying.
+            if ((p_bas->conn_handle != BLE_CONN_HANDLE_INVALID) && p_bas->is_notification_enable)
+            {
+                ble_gatts_hvx_params_t hvx_params;
 
-        // Send value if connected and notifying.
-        if ((p_bas->conn_handle != BLE_CONN_HANDLE_INVALID) && p_bas->is_notification_supported)
-        {
-            ble_gatts_hvx_params_t hvx_params;
+                memset(&hvx_params, 0, sizeof(hvx_params));
 
-            memset(&hvx_params, 0, sizeof(hvx_params));
+                hvx_params.handle = p_bas->battery_level_handles.value_handle;
+                hvx_params.type   = BLE_GATT_HVX_NOTIFICATION;
+                hvx_params.offset = gatts_value.offset;
+                hvx_params.p_len  = &gatts_value.len;
+                hvx_params.p_data = gatts_value.p_value;
 
-            hvx_params.handle = p_bas->battery_level_handles.value_handle;
-            hvx_params.type   = BLE_GATT_HVX_NOTIFICATION;
-            hvx_params.offset = gatts_value.offset;
-            hvx_params.p_len  = &gatts_value.len;
-            hvx_params.p_data = gatts_value.p_value;
-
-            err_code = sd_ble_gatts_hvx(p_bas->conn_handle, &hvx_params);
-        }
-        else
-        {
-            err_code = NRF_ERROR_INVALID_STATE;
+                err_code = sd_ble_gatts_hvx(p_bas->conn_handle, &hvx_params);
+            }
+            else
+            {
+                err_code = NRF_ERROR_INVALID_STATE;
+            }
         }
     }
 
