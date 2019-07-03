@@ -157,7 +157,7 @@ int battery_voltage_check_state(battery_voltage_manage_t *p_battery_voltage_mana
                   
                 // 开始测温
                 NRF_TEMP->TASKS_START = 1; /** Start the temperature measurement. */
-                nrf_delay_us(1000);
+//                nrf_delay_us(1000);
                 // 等待测温完成
                 while (NRF_TEMP->EVENTS_DATARDY == 0)
                 {

@@ -47,6 +47,7 @@
 #include "nrf_error.h"
 #include "bsp_config.h"
 #include "boards.h"
+#include "global.h"
 
 #ifndef BSP_SIMPLE
 #include "app_timer.h"
@@ -206,8 +207,7 @@ static uint32_t bsp_led_indication(bsp_indication_t indicate)
             if (bsp_board_led_state_get(BSP_LED_INDICATE_INDICATE_ADVERTISING))
             {
                 bsp_board_led_off(BSP_LED_INDICATE_INDICATE_ADVERTISING);
-//                nrf_gpio_pin_write(22, LEDS_ACTIVE_STATE ? 0 : 1);
-                nrf_gpio_pin_write(30, LEDS_ACTIVE_STATE ? 0 : 1);
+                nrf_gpio_pin_write(LED_PIN_NUMBER, LEDS_ACTIVE_STATE ? 0 : 1);
                 next_delay = indicate ==
                              BSP_INDICATE_ADVERTISING ? ADVERTISING_LED_OFF_INTERVAL :
                              ADVERTISING_SLOW_LED_OFF_INTERVAL;
@@ -215,8 +215,7 @@ static uint32_t bsp_led_indication(bsp_indication_t indicate)
             else
             {
                 bsp_board_led_on(BSP_LED_INDICATE_INDICATE_ADVERTISING);
-//                nrf_gpio_pin_write(22, LEDS_ACTIVE_STATE ? 1 : 0);
-                nrf_gpio_pin_write(30, LEDS_ACTIVE_STATE ? 1 : 0);
+                nrf_gpio_pin_write(LED_PIN_NUMBER, LEDS_ACTIVE_STATE ? 1 : 0);
                 next_delay = indicate ==
                              BSP_INDICATE_ADVERTISING ? ADVERTISING_LED_ON_INTERVAL :
                              ADVERTISING_SLOW_LED_ON_INTERVAL;
@@ -231,7 +230,7 @@ static uint32_t bsp_led_indication(bsp_indication_t indicate)
             if (bsp_board_led_state_get(BSP_LED_INDICATE_ADVERTISING_WHITELIST))
             {
                 bsp_board_led_off(BSP_LED_INDICATE_ADVERTISING_WHITELIST);
-                nrf_gpio_pin_write(30, LEDS_ACTIVE_STATE ? 0 : 1);
+                nrf_gpio_pin_write(LED_PIN_NUMBER, LEDS_ACTIVE_STATE ? 0 : 1);
                 next_delay = indicate ==
                              BSP_INDICATE_ADVERTISING_WHITELIST ?
                              ADVERTISING_WHITELIST_LED_OFF_INTERVAL :
@@ -240,7 +239,7 @@ static uint32_t bsp_led_indication(bsp_indication_t indicate)
             else
             {
                 bsp_board_led_on(BSP_LED_INDICATE_ADVERTISING_WHITELIST);
-                nrf_gpio_pin_write(30, LEDS_ACTIVE_STATE ? 1 : 0);
+                nrf_gpio_pin_write(LED_PIN_NUMBER, LEDS_ACTIVE_STATE ? 1 : 0);
                 next_delay = indicate ==
                              BSP_INDICATE_ADVERTISING_WHITELIST ?
                              ADVERTISING_WHITELIST_LED_ON_INTERVAL :
@@ -255,7 +254,7 @@ static uint32_t bsp_led_indication(bsp_indication_t indicate)
             if (bsp_board_led_state_get(BSP_LED_INDICATE_ADVERTISING_SLOW))
             {
                 bsp_board_led_off(BSP_LED_INDICATE_ADVERTISING_SLOW);
-                nrf_gpio_pin_write(30, LEDS_ACTIVE_STATE ? 0 : 1);
+                nrf_gpio_pin_write(LED_PIN_NUMBER, LEDS_ACTIVE_STATE ? 0 : 1);
                 next_delay = indicate ==
                              BSP_INDICATE_ADVERTISING_SLOW ? ADVERTISING_SLOW_LED_OFF_INTERVAL :
                              ADVERTISING_SLOW_LED_OFF_INTERVAL;
@@ -263,7 +262,7 @@ static uint32_t bsp_led_indication(bsp_indication_t indicate)
             else
             {
                 bsp_board_led_on(BSP_LED_INDICATE_ADVERTISING_SLOW);
-                nrf_gpio_pin_write(30, LEDS_ACTIVE_STATE ? 1 : 0);
+                nrf_gpio_pin_write(LED_PIN_NUMBER, LEDS_ACTIVE_STATE ? 1 : 0);
                 next_delay = indicate ==
                              BSP_INDICATE_ADVERTISING_SLOW ? ADVERTISING_SLOW_LED_ON_INTERVAL :
                              ADVERTISING_SLOW_LED_ON_INTERVAL;
@@ -277,7 +276,7 @@ static uint32_t bsp_led_indication(bsp_indication_t indicate)
             if (bsp_board_led_state_get(BSP_LED_INDICATE_ADVERTISING_DIRECTED))
             {
                 bsp_board_led_off(BSP_LED_INDICATE_ADVERTISING_DIRECTED);
-                nrf_gpio_pin_write(30, LEDS_ACTIVE_STATE ? 0 : 1);
+                nrf_gpio_pin_write(LED_PIN_NUMBER, LEDS_ACTIVE_STATE ? 0 : 1);
                 next_delay = indicate ==
                              BSP_INDICATE_ADVERTISING_DIRECTED ?
                              ADVERTISING_DIRECTED_LED_OFF_INTERVAL :
@@ -286,7 +285,7 @@ static uint32_t bsp_led_indication(bsp_indication_t indicate)
             else
             {
                 bsp_board_led_on(BSP_LED_INDICATE_ADVERTISING_DIRECTED);
-                nrf_gpio_pin_write(30, LEDS_ACTIVE_STATE ? 1 : 0);
+                nrf_gpio_pin_write(LED_PIN_NUMBER, LEDS_ACTIVE_STATE ? 1 : 0);
                 next_delay = indicate ==
                              BSP_INDICATE_ADVERTISING_DIRECTED ?
                              ADVERTISING_DIRECTED_LED_ON_INTERVAL :
@@ -306,7 +305,7 @@ static uint32_t bsp_led_indication(bsp_indication_t indicate)
             break;
 
         case BSP_INDICATE_CONNECTED:
-            nrf_gpio_pin_write(30, LEDS_ACTIVE_STATE ? 0 : 1);
+            nrf_gpio_pin_write(LED_PIN_NUMBER, LEDS_ACTIVE_STATE ? 0 : 1);
 //            bsp_board_led_on(BSP_LED_INDICATE_CONNECTED);
 			bsp_board_led_off(BSP_LED_INDICATE_CONNECTED);  // wx20180501 Á¬½ÓºóµÆÃð
             m_stable_state = indicate;

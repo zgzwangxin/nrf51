@@ -169,7 +169,7 @@ void Lin_data_ready(uint8_t byte)
           Lin_Recv_State = Lin_Recv_State_checkSum;
 //          nrf_gpio_pin_write(19, 1);
           if (is_connected) {
-            nrf_gpio_pin_write(30, 1);
+            nrf_gpio_pin_write(LED_PIN_NUMBER, 1);
             nrf_gpio_pin_write(20, 1);
           }
         }
@@ -177,7 +177,7 @@ void Lin_data_ready(uint8_t byte)
       case Lin_Recv_State_checkSum:
 //        nrf_gpio_pin_write(19, 0);
         if (is_connected) {
-            nrf_gpio_pin_write(30, 0);
+            nrf_gpio_pin_write(LED_PIN_NUMBER, 0);
             nrf_gpio_pin_write(20, 0);
         }
         Lin_data_recv_buf[Lin_data_recv_idx++] = byte;

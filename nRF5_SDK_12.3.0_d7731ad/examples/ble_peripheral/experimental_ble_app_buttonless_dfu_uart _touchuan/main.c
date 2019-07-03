@@ -411,9 +411,9 @@ static void soft_timer1_timer_handler(void * p_context)
   
 //    nrf_drv_wdt_feed();
   
-    Lin_master_go();
-  
     battery_voltage_check_state(&g_battery_voltage_manage);
+  
+    Lin_master_go();
 }
 
 
@@ -546,18 +546,18 @@ static void nus_data_handler(ble_nus_t * p_nus, uint8_t * p_data, uint16_t lengt
               
               Lin_ID_data_press(ID, p_data + 2);
           }
-          
+          NRF_LOG_INFO("recv lin cmd\r\n");
       }
   } else if (p_data[0] == 0) {
     is_open = false;
 //    nrf_gpio_cfg_output(2);
-    nrf_gpio_pin_write(2, 0);
+    nrf_gpio_pin_write(22, 0);
     nrf_gpio_pin_write(19, 0);
     NRF_LOG_INFO("set power off\r\n");
   } else if (p_data[0] == 1) {
     is_open = true;
 //    nrf_gpio_cfg_output(2);
-    nrf_gpio_pin_write(2, 1);
+    nrf_gpio_pin_write(22, 1);
     nrf_gpio_pin_write(19, 1);
     NRF_LOG_INFO("set power on\r\n");
   } else if (!strncmp((const char *)p_data, "reset_reason", strlen("reset_reason"))) {
@@ -1518,13 +1518,14 @@ void uart_init(void)
     uint32_t                     err_code;
     const app_uart_comm_params_t comm_params =
     {
-//        RX_PIN_NUMBER,//,5
-//        TX_PIN_NUMBER,//,6
-//        RTS_PIN_NUMBER,//,7
-//        CTS_PIN_NUMBER,//,12
+//        RX_PIN_NUMBER,//
+//        TX_PIN_NUMBER,//
+//        RTS_PIN_NUMBER,//
+//        CTS_PIN_NUMBER,//
 //        5,6,7,12,
 //      NRF_UART_PSEL_DISCONNECTED,28,7,12,
-        29,28,7,12,
+//        29,28,7,12,
+        11, 9, NRF_UART_PSEL_DISCONNECTED,NRF_UART_PSEL_DISCONNECTED,
         APP_UART_FLOW_CONTROL_DISABLED,
         false,
         UART_BAUDRATE_BAUDRATE_Baud19200
@@ -1648,21 +1649,20 @@ int main(void)
 //	nrf_gpio_pin_write(2, LEDS_ACTIVE_STATE ? 0 : 1);
   nrf_gpio_cfg_output(19);
 //	nrf_gpio_pin_write(19, LEDS_ACTIVE_STATE ? 0 : 1);
+  nrf_gpio_cfg_output(22);
   if (is_open) {
-    nrf_gpio_pin_write(2, 1);
+    nrf_gpio_pin_write(22, 1);
     nrf_gpio_pin_write(19, 1);
   } else {
-    nrf_gpio_pin_write(2, 0);
+    nrf_gpio_pin_write(22, 0);
     nrf_gpio_pin_write(19, 0);
   }
     
 	
 	nrf_gpio_cfg_output(20);
 	nrf_gpio_pin_write(20, LEDS_ACTIVE_STATE ? 0 : 1);
-  nrf_gpio_cfg_output(21);
-	nrf_gpio_pin_write(21, LEDS_ACTIVE_STATE ? 0 : 1);
-  nrf_gpio_cfg_output(22);
-	nrf_gpio_pin_write(22, LEDS_ACTIVE_STATE ? 0 : 1);
+  nrf_gpio_cfg_output(LED_PIN_NUMBER);
+	nrf_gpio_pin_write(LED_PIN_NUMBER, LEDS_ACTIVE_STATE ? 0 : 1);
 
   nrf_gpio_cfg_output(30);
 	nrf_gpio_pin_write(30, LEDS_ACTIVE_STATE ? 0 : 1);
